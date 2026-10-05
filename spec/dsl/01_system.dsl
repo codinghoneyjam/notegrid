@@ -94,7 +94,7 @@ LAYOUT
     notegrid.root                                                      # root marker for CLI write-scope checks
     music_source/                                                      # project files (*.ngproj.json), committed
     music_output/                                                      # exports (wav/ogg/mid/loop.json), gitignored
-    crates/ packages/ xtask/ vendor/vorbis/ schema/ fixture/ docs/ scripts/
+    crates/ packages/ xtask/ vendor/vorbis/ spec/ docs/ scripts/
     README.md LICENSE CHANGELOG.md                                     # tool-owned
   <game-repo>/core/assets/audio/music/                                 # game import location, filled by manual copy
 END

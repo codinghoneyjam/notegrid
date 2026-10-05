@@ -1,4 +1,6 @@
-// <META - ROLE : R07.AC2(partial) ABI fuzz: truncated/random JSON through validate/migrate/canonical, 0 traps. | L1-30>
+// <META - ROLE : R07.AC2(partial) ABI fuzz: truncated/random JSON through validate/migrate/canonical, 0 traps. | L1-32>
+#[macro_use]
+mod common;
 
 #[test]
 fn abi_fuzz_truncated_and_random_inputs_no_trap() {
@@ -22,7 +24,7 @@ fn abi_fuzz_truncated_and_random_inputs_no_trap() {
         }
     }
     // also: truncated example project at every length
-    let example = include_str!("../../../fixture/example_project.json");
+    let example = include_root_file!("spec/fixture/example_project.json");
     for cut in 0..example.len() {
         let _ = ng_score::validate_bytes(&example.as_bytes()[..cut]);
         let _ = ng_score::migrate(&example.as_bytes()[..cut]);

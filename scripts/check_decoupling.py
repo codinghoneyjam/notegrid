@@ -5,8 +5,7 @@ import pathlib
 import re
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
-REPO = ROOT.parent.parent  # repository root holding tools/notegrid
+from paths import ROOT, REPO
 GAME_GLOBS = ["**/*.gd", "**/*.tscn", "**/project.godot"]
 GAME_DIRS = ["core", "entity", "ui", "world", "presentation", "assetdb", "main", "features"]
 GAME_PATHS = re.compile(r"res://|core/|entity/|ui/|world/|project\.godot")

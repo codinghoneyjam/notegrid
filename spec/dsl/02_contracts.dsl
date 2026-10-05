@@ -12,7 +12,7 @@ RULE C0.6 lane kind: melodic(program 0-127) | drum(kit 0-127 = GM bank-128 progr
 RULE C0.7 files/folders snake_case, folders singular ; UTF-8 ; LF
 
 ## C1 PROJECT FILE  (JSON, format_version 1)
-SOURCE_OF_TRUTH schema/project.schema.json (structure) + invariants below (semantics) ; example fixture/example_project.json
+SOURCE_OF_TRUTH spec/schema/project.schema.json (structure) + invariants below (semantics) ; example spec/fixture/example_project.json
 NOTE_ENCODING [lane, start, duration, pitch, velocity] one tuple per line
 INVARIANT I-01 lane ids unique, >= 1 ; lanes <= 128                                      -> E_LANE_DUP | E_RANGE
 INVARIANT I-02 every note.lane exists                                                    -> E_LANE_MISSING

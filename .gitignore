@@ -7,3 +7,6 @@ music_source/*
 !music_source/.gitkeep
 spikes/*/target
 *.tmp
+__pycache__/
+*.pyc
+.vscode/

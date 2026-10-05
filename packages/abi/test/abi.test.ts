@@ -18,7 +18,7 @@ test('abi exports match expected set (g08)', async () => {
 test('wrappers drive validate/migrate/canonical/gm_tables', async () => {
   const ng = await loadNg();
   assert.equal(ng.abiVersion(), 1);
-  const project = readFileSync(new URL('../../../fixture/example_project.json', import.meta.url), 'utf8');
+  const project = readFileSync(new URL('../../../spec/fixture/example_project.json', import.meta.url), 'utf8');
   const report = ng.validate(project);
   assert.equal(report.errors.length, 0);
   const canonical = ng.canonical(project);

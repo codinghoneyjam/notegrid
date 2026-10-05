@@ -12,8 +12,14 @@ Rust (WASM core) + TypeScript (UI) + C (libvorbis, OGG only). Lives inside the G
 | `02_contracts.dsl` | interface contracts C0-C12 (units, project format, traits, schedule binary, C ABI, worklet protocol, TS interfaces, realtime rules, export formats, errors, browser and output-safety contracts) |
 | `03_roadmap.dsl` | phases P0-P6 as a state machine, TASK blocks (SCOPE / READS / DONE WHEN), spikes, risks |
 | `module/*.dsl` | 15 modules: `R01-R07` Rust, `T01-T07` TypeScript, `X01` cross-cutting |
-| `schema/project.schema.json` | project file schema (structure) |
-| `fixture/example_project.json` | example passing schema and invariants |
+All paths in this package are relative to the repository root. Machine-readable artefacts live outside this folder, under `spec/`:
+
+| file | content |
+|---|---|
+| `spec/schema/project.schema.json` | project file schema (structure) |
+| `spec/fixture/example_project.json` | example passing schema and invariants |
+| `spec/fixture/validation/*.json` | shared validation vectors (gate g09) |
+| `spec/fixture/golden/**` | golden files (gate g12) |
 
 ## Reading order
 `00_dsl` -> `01_system` -> `02_contracts` -> module you implement -> your TASK in `03_roadmap`.

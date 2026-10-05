@@ -73,10 +73,10 @@ GATE g05_native_vs_wasm ACTIVE_FROM P0 RUN same inputs through ng-cli and throug
 GATE g06_ts_checks     ACTIVE_FROM P0  RUN tsc --noEmit ; eslint ; vitest (incl. fast-check properties)
 GATE g07_ts_deps       ACTIVE_FROM P0  RUN dependency-cruiser: package graph == union of MODULE.DEPENDS_ON ; no cycles
 GATE g08_abi_exports   ACTIVE_FROM P0  RUN set(wasm exports) == set(@ng/abi expected) ; ng_abi_version matches
-GATE g09_schema_vectors ACTIVE_FROM P0 RUN shared vectors fixture/validation/*.json : Rust validate == JSON Schema verdict, same code+path
+GATE g09_schema_vectors ACTIVE_FROM P0 RUN shared vectors spec/fixture/validation/*.json : Rust validate == JSON Schema verdict, same code+path
 GATE g10_e2e_smoke     ACTIVE_FROM P1  RUN playwright on ENGINES: load -> place note -> play (worklet block non-silent) -> export (bytes verified) ; offline mode variant
 GATE g11_license       ACTIVE_FROM P0  RUN cargo-deny ; license-checker (allow-list)
-GATE g12_golden_reason ACTIVE_FROM P1  RUN any changed file under fixture/golden/** requires a new dated entry in docs/golden_changes.md
+GATE g12_golden_reason ACTIVE_FROM P1  RUN any changed file under spec/fixture/golden/** requires a new dated entry in docs/golden_changes.md
 GATE g13_decoupling    ACTIVE_FROM P0  RUN scripts/check_decoupling: DR-1, DR-2, DR-6, DR-8 ; malicious-name/path vectors rejected by every sink
 GATE g14_engine_identical ACTIVE_FROM P1 RUN same project rendered offline on each of ENGINES ; WAV bytes identical (C11.3)
 GATE g15_rt_rules      ACTIVE_FROM P1  RUN counting-allocator test: 0 allocations in render_block after warm-up ; denormal test (R-RT-3)

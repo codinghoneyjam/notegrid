@@ -28,7 +28,7 @@ T1.5 ng-export(wav) ────────────────────
 T0.4 ABI skeleton extended ───────────────────────────────────────┼─> T1.7 engine ABI/worklet/AudioEngine
 ```
 
-- T1.1  TempoMap, compile, Schedule bytes        | scope: crates/ng-timeline, fixture/golden/schedule
+- T1.1  TempoMap, compile, Schedule bytes        | scope: crates/ng-timeline, spec/fixture/golden/schedule
   DONE: R02.AC1..AC5, fixture: 124bpm -> 341419 @44100 / 371613 @48000; property bpm∈[20,400], sr∈{44100,48000}: sample_to_tick(tick_to_sample(t))==t; from_bytes fuzz 0 panics.
 - T1.2  DSP parts (Envelope, Ramp 5ms, Lcg, SoftLimiter, Reverb skeleton, denormal-protected feedback)
   DONE: libm for all transcendentals; denormal test passes; ac:R04.R04 (reverb flushes to < -120 dBFS).

@@ -1,4 +1,4 @@
-// <META - ROLE : Project model mirroring schema/project.schema.json; x_ keys preserved via ext maps. | L1-60>
+// <META - ROLE : Project model mirroring spec/schema/project.schema.json; x_ keys preserved via ext maps. | L1-60>
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;

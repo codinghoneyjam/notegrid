@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 # <META - FILE SUMMARY - Tooling script; see docstring below.>
 """g05: same inputs through ng-cli and wasm-in-Node produce byte-identical output."""
-import json
-import pathlib
 import subprocess
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
-EXAMPLE = ROOT / "fixture" / "example_project.json"
+from paths import CARGO_BIN, ROOT, EXAMPLE_PROJECT as EXAMPLE
 
 native = subprocess.run(
-    ["cargo", "run", "-p", "ng-cli", "--release", "--", "canonical", str(EXAMPLE)],
+    [CARGO_BIN, "run", "-p", "ng-cli", "--release", "--", "canonical", str(EXAMPLE)],
     cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace", check=True,
 ).stdout
 

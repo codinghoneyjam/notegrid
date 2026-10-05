@@ -5,7 +5,7 @@ Date: 2026-10-05 | Scope: TASK T0.1..T0.7
 ## Delivered
 - T0.1 `cargo xtask test-all` green on the workspace; `tools/.gdignore`; `.gitignore` covers node_modules/target/dist/music_output.
 - T0.2 ng-core: C2 traits/types compile; zero third-party deps.
-- T0.3 ng-score: validate (I-01..I-10, W-1..W-3), canonical, migrate scaffold, GM tables; 46 validation vectors in `fixture/validation/`; proptest + fuzz-smoke; ac:R01.AC1..AC4 green; gate g09 green.
+- T0.3 ng-score: validate (I-01..I-10, W-1..W-3), canonical, migrate scaffold, GM tables; 46 validation vectors in `spec/fixture/validation/`; proptest + fuzz-smoke; ac:R01.AC1..AC4 green; gate g09 green.
 - T0.4 ng-wasm C ABI skeleton + `packages/abi` TS loader: abi_version/alloc/free/validate/migrate/canonical/gm_tables work from Node; gate g08 green; ac:R07.AC2 partial (random pointers/lengths, truncated JSON: 0 traps).
 - T0.5 SPIKE SP-1/SP-2 reports in `docs/spikes/`; SP-2 PASS (native == wasm-in-Node, 176400 bytes); SP-1 mechanism-level PASS at Node, engine matrix PENDING until T1.7 worklet exists.
 - T0.6 gates g01 g02 g03 g05 g06 g07(config) g09 g11(config) g13 pass; CI workflow `.github/workflows/notegrid-ci.yml` (root) + in-tree copy.

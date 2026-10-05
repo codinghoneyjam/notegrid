@@ -3,7 +3,7 @@ MODULE X01 build_quality
   PURPOSE reproducible build, test pyramid, gates ; rules checked by machines, not remembered by people
   DESIGN
     LAYOUT under ROOT : rust-toolchain.toml (stable pinned + wasm32-unknown-unknown) ; Cargo.toml workspace ; crates/* ; xtask/ ; packages/* (pnpm workspace) ; vendor/vorbis/ (pinned emscripten build) ;
-                        schema/ ; fixture/{example_project.json, validation/*.json, golden/*} ; docs/ ; scripts/ ; README.md LICENSE CHANGELOG.md ; notegrid.root ; music_source/ ; music_output/
+                        spec/{schema/project.schema.json, fixture/{example_project.json, validation/*.json, golden/*}} ; docs/ ; scripts/ ; README.md LICENSE CHANGELOG.md ; notegrid.root ; music_source/ ; music_output/
     tool versions pinned by files (rust-toolchain.toml, .nvmrc, pnpm lockfile, binaryen/emscripten versions in scripts)
     BUILD `cargo xtask build-wasm`: release profile -> wasm-opt -O3 -> size check against BUDGET.wasm_size -> copy to packages/abi ; TS via vite (bundle, worklet module, PWA) ;
           types generated from schema ; GM tables generated through ng_gm_tables ; cross-platform (Windows-safe) via xtask, no shell scripts required

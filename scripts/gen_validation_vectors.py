@@ -1,9 +1,14 @@
 # generate validation vectors: {input, expect_codes, schema_invalid}
 # <META - FILE SUMMARY - Tooling script; see docstring below.>
-import json, copy, os
+import copy
+import json
+import os
+import pathlib
 
-base = json.load(open('fixture/example_project.json', encoding='utf-8'))
-out_dir = 'fixture/validation'
+from paths import EXAMPLE_PROJECT, VALIDATION_DIR
+
+base = json.loads(EXAMPLE_PROJECT.read_text(encoding='utf-8'))
+out_dir = VALIDATION_DIR
 os.makedirs(out_dir, exist_ok=True)
 
 def put(name, input_obj, codes, schema_invalid):

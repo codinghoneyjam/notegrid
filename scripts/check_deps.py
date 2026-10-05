@@ -2,15 +2,15 @@
 # <META - FILE SUMMARY - Tooling script; see docstring below.>
 """g03: cargo metadata graph == union of MODULE.DEPENDS_ON; extern "C" only in crates/ng-wasm."""
 import json
-import pathlib
 import re
 import subprocess
 import sys
 
-ROOT = pathlib.Path(__file__).resolve().parent.parent
+from paths import CARGO_BIN, ROOT, CRATES_DIR
+
 META = json.loads(
     subprocess.run(
-        ["cargo", "metadata", "--format-version", "1"],
+        [CARGO_BIN, "metadata", "--format-version", "1"],
         cwd=ROOT, capture_output=True, encoding="utf-8", errors="replace", check=True,
     ).stdout
 )
@@ -41,7 +41,7 @@ for pkg in META["packages"]:
         errors.append(f"{name}: deps {sorted(actual)} != allowed {sorted(ALLOWED[name])}")
 
 # extern "C" / unsafe isolation check (only crates/* scanned; spikes/ and scripts/ exempt as throwaway)
-for rs in (ROOT / "crates").rglob("*.rs"):
+for rs in CRATES_DIR.rglob("*.rs"):
     crate = rs.parts[rs.parts.index("crates") + 1]
     text = rs.read_text(encoding="utf-8", errors="replace")
     if crate != "ng-wasm":

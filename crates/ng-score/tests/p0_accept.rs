@@ -1,6 +1,8 @@
-// <META - ROLE : P0 acceptance tests: AC1 example project, AC2 vectors vs JSON Schema, AC3 fuzz-smoke, AC4 GM tables, canonical stability. | L1-90>
+// <META - ROLE : P0 acceptance tests: AC1 example project, AC2 vectors vs JSON Schema, AC3 fuzz-smoke, AC4 GM tables, canonical stability. | L1-110>
+#[macro_use]
+mod common;
 
-const EXAMPLE: &str = include_str!("../../../fixture/example_project.json");
+const EXAMPLE: &str = include_root_file!("spec/fixture/example_project.json");
 
 #[test]
 fn ac1_example_project_passes_and_canonical_stable() {
@@ -15,10 +17,10 @@ fn ac1_example_project_passes_and_canonical_stable() {
 
 #[test]
 fn ac2_validation_vectors_match_schema_verdict() {
-    let schema_text = include_str!("../../../schema/project.schema.json");
+    let schema_text = include_root_file!("spec/schema/project.schema.json");
     let schema_value: serde_json::Value = serde_json::from_str(schema_text).unwrap();
     let validator = jsonschema::validator_for(&schema_value).expect("schema compiles");
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixture/validation");
+    let dir = common::validation_vectors_dir();
     let mut count = 0;
     for entry in std::fs::read_dir(&dir).unwrap() {
         let entry = entry.unwrap();

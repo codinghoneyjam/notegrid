@@ -58,7 +58,7 @@ TASK T0.2 "core types and traits"
   SCOPE { ROOT/crates/ng-core/** }   READS { ROOT/docs/02_contracts.dsl }
   DONE WHEN { traits and types compile exactly as C2 ; ng-core has zero third-party deps (R01.R04) }
 TASK T0.3 "score model, validation, canonical, migrate scaffold"
-  SCOPE { ROOT/crates/ng-score/**, ROOT/fixture/validation/**, ROOT/schema/** }   READS { ROOT/crates/ng-core/** }
+  SCOPE { ROOT/crates/ng-score/**, ROOT/spec/fixture/validation/**, ROOT/spec/schema/** }   READS { ROOT/crates/ng-core/** }
   DONE WHEN { ac:R01.AC1 ; ac:R01.AC2 ; ac:R01.AC3 ; ac:R01.AC4 ; gate:g09 }
 TASK T0.4 "ABI skeleton and TS loader"
   SCOPE { ROOT/crates/ng-wasm/**, ROOT/packages/abi/** }   READS { ng-core, ng-score }
@@ -80,7 +80,7 @@ PHASE P1
   EXIT    { MS-A ; gates g01..g15 active at P1 pass ; budgets measured and fixed (BUDGET.*) ; ac:R05.AC1 ; ac:R05.AC2 ; ac:R05.AC5 }
 
 TASK T1.1 "TempoMap, compile, schedule bytes"
-  SCOPE { ROOT/crates/ng-timeline/**, ROOT/fixture/golden/schedule/** }   READS { ng-core, ng-score }
+  SCOPE { ROOT/crates/ng-timeline/**, ROOT/spec/fixture/golden/schedule/** }   READS { ng-core, ng-score }
   DONE WHEN { ac:R02.AC1 ; ac:R02.AC2 ; ac:R02.AC3 ; ac:R02.AC4 ; ac:R02.AC5 }
 TASK T1.2 "DSP parts"
   SCOPE { ROOT/crates/ng-dsp/** }   READS { ng-core }
@@ -95,7 +95,7 @@ TASK T1.5 "WavEncoder"
   SCOPE { ROOT/crates/ng-export/src/wav/**, ROOT/crates/ng-export/tests/wav* }   READS { ng-core }
   DONE WHEN { ac:R06.AC1 }
 TASK T1.6 "native CLI render and cross-target determinism"
-  SCOPE { ROOT/crates/ng-cli/**, ROOT/fixture/golden/** }   READS { all crates }
+  SCOPE { ROOT/crates/ng-cli/**, ROOT/spec/fixture/golden/** }   READS { all crates }
   DONE WHEN { ng-cli render writes WAV into music_output via FsSink(C12) ; gate:g05 ; gate:g12 ; gate:g15 }
 TASK T1.7 "engine ABI, worklet, minimal AudioEngine"
   SCOPE { ROOT/crates/ng-wasm/**, ROOT/packages/playback/**, ROOT/packages/export-service/src/wav/** }   READS { R07, T03 }
@@ -158,7 +158,7 @@ TASK T3.4 "SoundbankSource: UrlSource, LocalFileSource, link presets, bank manag
   SCOPE { ROOT/packages/bank-source/**, ROOT/packages/persistence/src/bank/**, ROOT/packages/app/src/bank-manager/** }
   DONE WHEN { ac:T07.AC1 ; ac:T07.AC2 ; ac:T07.AC3 ; ac:T07.AC4 ; ac:T04.AC4 }
 TASK T3.5 "128-program golden renders and listening notes"
-  SCOPE { ROOT/fixture/golden/soundfont/**, ROOT/docs/listening_notes.md }
+  SCOPE { ROOT/spec/fixture/golden/soundfont/**, ROOT/docs/listening_notes.md }
   DONE WHEN { every program + kit renders non-silent, no NaN (energy golden) ; listening evaluation recorded }
 
 ## PHASE P4  "Export and MIDI I/O"   EFFORT M-L
@@ -179,7 +179,7 @@ TASK T4.4 "export orchestration, encoder and sink registries"
   SCOPE { ROOT/packages/export-service/src/** except ogg/ }
   DONE WHEN { ac:T05.AC1 ; ac:T05.AC4 ; T05.R03 verified by adding a dummy encoder in a test }
 TASK T4.5 "OutputSink: DownloadSink, DirectorySink, C12 vectors; FsSink in CLI"
-  SCOPE { ROOT/packages/export-service/src/sink/**, ROOT/crates/ng-cli/src/sink/**, ROOT/fixture/validation/paths/** }
+  SCOPE { ROOT/packages/export-service/src/sink/**, ROOT/crates/ng-cli/src/sink/**, ROOT/spec/fixture/validation/paths/** }
   DONE WHEN { ac:T05.AC6 ; ac:X01.AC6 ; atomic write verified (kill during write leaves no partial file) ; overwrite policy implemented in UI and CLI }
 TASK T4.6 "loop export: tail_fold, sidecar, comments"
   SCOPE { ROOT/crates/ng-render/src/offline/**, ROOT/packages/export-service/src/loop/** }
@@ -197,7 +197,7 @@ PHASE P5
   EXIT    { MS-E ; every BUDGET.* met or amended with a DECIDE ; offline scenarios pass on ENGINES ; real-Safari checklist recorded ; ac:T06.AC3 }
 
 TASK T5.1 "reverb and limiter tuning as data tables"
-  SCOPE { ROOT/crates/ng-dsp/src/reverb/**, ROOT/crates/ng-render/src/master/**, ROOT/fixture/golden/** }
+  SCOPE { ROOT/crates/ng-dsp/src/reverb/**, ROOT/crates/ng-render/src/master/**, ROOT/spec/fixture/golden/** }
   DONE WHEN { listening notes recorded ; golden changes logged ; ac:R04.R04 }
 TASK T5.2 "PWA offline completion and update flow"
   SCOPE { ROOT/packages/app/src/pwa/** }
