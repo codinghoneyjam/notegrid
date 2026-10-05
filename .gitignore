@@ -1,0 +1,9 @@
+target/
+node_modules/
+dist/
+music_output/*
+!music_output/.gitignore
+music_source/*
+!music_source/.gitkeep
+spikes/*/target
+*.tmp

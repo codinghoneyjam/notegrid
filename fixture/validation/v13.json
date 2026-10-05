@@ -1,0 +1,228 @@
+{
+  "input": {
+    "format_version": 1,
+    "title": "Example: 4 lanes x 4 bars",
+    "ppq": 480,
+    "tempo": [
+      {
+        "tick": 0,
+        "bpm": 124.0
+      }
+    ],
+    "meter": [
+      {
+        "tick": 0,
+        "num": 4,
+        "den": 3
+      }
+    ],
+    "loop": {
+      "start": 0,
+      "end": 7680
+    },
+    "length_ticks": 7680,
+    "lanes": [
+      {
+        "id": 1,
+        "name": "Piano",
+        "kind": "melodic",
+        "program": 0,
+        "volume": 100,
+        "pan": 64,
+        "reverb_send": 30,
+        "mute": false,
+        "solo": false,
+        "color": "#4aa3ff"
+      },
+      {
+        "id": 2,
+        "name": "Bass",
+        "kind": "melodic",
+        "program": 33,
+        "volume": 105,
+        "pan": 60,
+        "reverb_send": 0,
+        "mute": false,
+        "solo": false,
+        "color": "#ffb04a"
+      },
+      {
+        "id": 3,
+        "name": "Strings",
+        "kind": "melodic",
+        "program": 48,
+        "volume": 85,
+        "pan": 70,
+        "reverb_send": 50,
+        "mute": false,
+        "solo": false,
+        "color": "#7bd88f"
+      },
+      {
+        "id": 4,
+        "name": "Drums",
+        "kind": "drum",
+        "kit": 0,
+        "volume": 100,
+        "pan": 64,
+        "reverb_send": 10,
+        "mute": false,
+        "solo": false,
+        "color": "#ff6b6b"
+      }
+    ],
+    "notes": [
+      [
+        1,
+        0,
+        480,
+        72,
+        100
+      ],
+      [
+        1,
+        480,
+        480,
+        75,
+        96
+      ],
+      [
+        1,
+        960,
+        960,
+        77,
+        100
+      ],
+      [
+        1,
+        1920,
+        480,
+        75,
+        96
+      ],
+      [
+        1,
+        2400,
+        480,
+        72,
+        92
+      ],
+      [
+        1,
+        2880,
+        960,
+        70,
+        100
+      ],
+      [
+        2,
+        0,
+        960,
+        41,
+        105
+      ],
+      [
+        2,
+        960,
+        960,
+        48,
+        100
+      ],
+      [
+        2,
+        1920,
+        960,
+        44,
+        105
+      ],
+      [
+        2,
+        2880,
+        960,
+        46,
+        100
+      ],
+      [
+        3,
+        0,
+        1920,
+        65,
+        80
+      ],
+      [
+        3,
+        0,
+        1920,
+        68,
+        80
+      ],
+      [
+        3,
+        0,
+        1920,
+        72,
+        80
+      ],
+      [
+        4,
+        0,
+        120,
+        36,
+        110
+      ],
+      [
+        4,
+        480,
+        120,
+        38,
+        100
+      ],
+      [
+        4,
+        960,
+        120,
+        36,
+        105
+      ],
+      [
+        4,
+        1440,
+        120,
+        38,
+        100
+      ],
+      [
+        4,
+        0,
+        120,
+        42,
+        80
+      ],
+      [
+        4,
+        240,
+        120,
+        42,
+        70
+      ],
+      [
+        4,
+        480,
+        120,
+        42,
+        80
+      ],
+      [
+        4,
+        720,
+        120,
+        42,
+        70
+      ]
+    ]
+  },
+  "expect_codes": [
+    "E_FORMAT"
+  ],
+  "schema_invalid": true
+}

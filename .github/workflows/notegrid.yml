@@ -1,0 +1,39 @@
+name: ci
+on:
+  push:
+    paths: ["**", ".github/workflows/notegrid.yml"]
+  pull_request:
+    paths: ["**", ".github/workflows/notegrid.yml"]
+defaults:
+  run:
+    working-directory: .
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .
+      - run: cargo fmt --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      - run: cargo xtask build-wasm
+      - run: python scripts/check_deps.py
+      - run: python scripts/check_decoupling.py
+      - run: python scripts/check_determinism.py
+  ts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 12 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: pnpm, cache-dependency-path: pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r check
+      - run: pnpm -r test

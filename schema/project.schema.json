@@ -1,0 +1,281 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "notegrid/schema/project.schema.json",
+  "title": "NoteGrid project (format_version 1)",
+  "description": "Structural rules only. Semantic invariants I-xx live in 02_contracts.dsl (C1) and are enforced by ng-score::validate.",
+  "type": "object",
+  "properties": {
+    "format_version": {
+      "const": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "ppq": {
+      "const": 480
+    },
+    "tempo": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "tick": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "bpm": {
+            "type": "number",
+            "minimum": 20,
+            "maximum": 400
+          }
+        },
+        "additionalProperties": false,
+        "patternProperties": {
+          "^x_": {}
+        },
+        "required": [
+          "tick",
+          "bpm"
+        ]
+      }
+    },
+    "meter": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "tick": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "num": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32
+          },
+          "den": {
+            "enum": [
+              1,
+              2,
+              4,
+              8,
+              16,
+              32
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "patternProperties": {
+          "^x_": {}
+        },
+        "required": [
+          "tick",
+          "num",
+          "den"
+        ]
+      }
+    },
+    "loop": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "end": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false,
+          "patternProperties": {
+            "^x_": {}
+          },
+          "required": [
+            "start",
+            "end"
+          ]
+        }
+      ]
+    },
+    "length_ticks": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "lanes": {
+      "type": "array",
+      "maxItems": 128,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "volume": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              },
+              "pan": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              },
+              "reverb_send": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              },
+              "mute": {
+                "type": "boolean"
+              },
+              "solo": {
+                "type": "boolean"
+              },
+              "color": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "kind": {
+                "const": "melodic"
+              },
+              "program": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x_": {}
+            },
+            "required": [
+              "id",
+              "name",
+              "kind",
+              "program"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "volume": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              },
+              "pan": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              },
+              "reverb_send": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              },
+              "mute": {
+                "type": "boolean"
+              },
+              "solo": {
+                "type": "boolean"
+              },
+              "color": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$"
+              },
+              "kind": {
+                "const": "drum"
+              },
+              "kit": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 127
+              }
+            },
+            "additionalProperties": false,
+            "patternProperties": {
+              "^x_": {}
+            },
+            "required": [
+              "id",
+              "name",
+              "kind",
+              "kit"
+            ]
+          }
+        ]
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "type": "integer",
+            "minimum": 1
+          },
+          {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4294967295
+          },
+          {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 127
+          },
+          {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 127
+          }
+        ],
+        "minItems": 5,
+        "maxItems": 5
+      }
+    }
+  },
+  "additionalProperties": false,
+  "patternProperties": {
+    "^x_": {}
+  },
+  "required": [
+    "format_version",
+    "title",
+    "ppq",
+    "tempo",
+    "meter",
+    "lanes",
+    "notes"
+  ]
+}

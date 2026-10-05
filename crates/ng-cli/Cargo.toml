@@ -1,0 +1,13 @@
+[package]
+name = "ng-cli"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ng-cli"
+path = "src/main.rs"
+
+[dependencies]
+ng-core = { path = "../ng-core" }
+ng-score = { path = "../ng-score" }

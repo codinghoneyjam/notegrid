@@ -1,0 +1,10 @@
+{
+  "name": "notegrid",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "pnpm -r test",
+    "check": "pnpm -r check"
+  }
+}
