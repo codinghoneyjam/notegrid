@@ -1,4 +1,4 @@
-// <META - FILE SUMMARY - One-pole and biquad filters with libm-routed coefficients. | L1-170>
+// <META - FILE SUMMARY - One-pole and biquad filters with libm-routed coefficients. | L1-380>
 // HOTPATH: fixed-size coefficient arrays held inline, no allocation after construction, no
 // indexing, no panic. Transcendentals go through `libm` (R04.DESIGN, R-RT-4).
 
@@ -154,6 +154,18 @@ impl BiquadFilter {
         Ok(Self::from_coeffs(normalize(coeffs, a0)))
     }
 
+    /// Highpass, RBJ cookbook form.
+    pub fn highpass(freq_hz: f32, q: f32, sample_rate: u32) -> Result<Self, FilterError> {
+        let (a0, coeffs) = highpass_coeffs(freq_hz, q, sample_rate)?;
+        Ok(Self::from_coeffs(normalize(coeffs, a0)))
+    }
+
+    /// Bandpass with constant 0 dB peak gain (RBJ cookbook).
+    pub fn bandpass(freq_hz: f32, q: f32, sample_rate: u32) -> Result<Self, FilterError> {
+        let (a0, coeffs) = bandpass_coeffs(freq_hz, q, sample_rate)?;
+        Ok(Self::from_coeffs(normalize(coeffs, a0)))
+    }
+
     /// One sample in, one sample out. Direct form I.
     pub fn process(&mut self, x: f32) -> f32 {
         let y =
@@ -204,6 +216,42 @@ fn lowpass_coeffs(freq_hz: f32, q: f32, sample_rate: u32) -> Result<(f32, Biquad
             b0: (1.0 - cos_w0) * 0.5,
             b1: 1.0 - cos_w0,
             b2: (1.0 - cos_w0) * 0.5,
+            a1: -2.0 * cos_w0,
+            a2: 1.0 - alpha,
+        },
+    ))
+}
+
+fn highpass_coeffs(freq_hz: f32, q: f32, sample_rate: u32) -> Result<(f32, Biquad), FilterError> {
+    validate(freq_hz, q, sample_rate)?;
+    let w0 = 2.0 * core::f32::consts::PI * freq_hz / sample_rate as f32;
+    let (sin_w0, cos_w0) = (sinf(w0), cosf(w0));
+    let alpha = sin_w0 / (2.0 * q);
+    let a0 = 1.0 + alpha;
+    Ok((
+        a0,
+        Biquad {
+            b0: (1.0 + cos_w0) * 0.5,
+            b1: -(1.0 + cos_w0),
+            b2: (1.0 + cos_w0) * 0.5,
+            a1: -2.0 * cos_w0,
+            a2: 1.0 - alpha,
+        },
+    ))
+}
+
+fn bandpass_coeffs(freq_hz: f32, q: f32, sample_rate: u32) -> Result<(f32, Biquad), FilterError> {
+    validate(freq_hz, q, sample_rate)?;
+    let w0 = 2.0 * core::f32::consts::PI * freq_hz / sample_rate as f32;
+    let (sin_w0, cos_w0) = (sinf(w0), cosf(w0));
+    let alpha = sin_w0 / (2.0 * q);
+    let a0 = 1.0 + alpha;
+    Ok((
+        a0,
+        Biquad {
+            b0: alpha,
+            b1: 0.0,
+            b2: -alpha,
             a1: -2.0 * cos_w0,
             a2: 1.0 - alpha,
         },

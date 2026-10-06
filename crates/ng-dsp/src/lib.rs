@@ -4,6 +4,7 @@
 // Option and the caller decides. Tests may use them freely; see tests/common/mod.rs.
 pub mod envelope;
 pub mod filter;
+pub mod interp;
 pub mod limiter;
 pub mod noise;
 pub mod ramp;

@@ -96,7 +96,7 @@ TASK T1.1 "TempoMap, compile, schedule bytes"
   SCOPE { ROOT/crates/ng-timeline/**, ROOT/spec/fixture/golden/schedule/** }   READS { ng-core, ng-score }
   DONE WHEN { ac:R02.AC1 ; ac:R02.AC2 ; ac:R02.AC3 ; ac:R02.AC4 ; ac:R02.AC5 }
 TASK T1.2 "DSP parts"
-  STATE IMPLEMENT
+  STATE DONE
   SCOPE { ROOT/crates/ng-dsp/** }   READS { ng-core }
   DONE WHEN { Envelope, Ramp, Lcg, SoftLimiter, Reverb(skeleton) unit-tested ; ac:R04.R04 ; libm used for all transcendentals ; denormal test passes }
 TASK T1.3 "OscSynth and synth_contract"

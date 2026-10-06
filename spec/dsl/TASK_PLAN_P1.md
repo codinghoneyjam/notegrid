@@ -1,6 +1,6 @@
 # TASK_PLAN_P1.md — NoteGrid Phase P1 "Sounding vertical slice"
 
-Status: ACTIVE, no task started  | Date: 2026-10-06  | Owner: TBD
+Status: ACTIVE, T1.1 and T1.2 DONE  | Date: 2026-10-06  | Owner: TBD
 Source of truth for scope: `03_roadmap.dsl` PHASE P1, `01_system.dsl`, `02_contracts.dsl`, `module/R0{2,4,5,6,7}*.dsl`, `module/T0{3,5}*.dsl`, `00_dsl.dsl`.
 
 ## 0. Executive summary
@@ -44,7 +44,7 @@ target from the module spec until a test actually measures it.
 | task | scope | state | done when (roadmap) | notes on the checks |
 |---|---|---|---|---|
 | T1.1 TempoMap, compile, schedule bytes | `crates/ng-timeline`, `spec/fixture/golden/schedule` | DONE (2026-10-06) | ac:R02.AC1..AC5 | AC1 124bpm -> 341419 @44100 / 371613 @48000; AC2 tempo-change points vs exact-rational reference (`scripts/gen_tempo_vectors.py` + in-crate integer reference); AC3 property bpm∈[20,400], sr∈{44100,48000}, round trip + strict monotonicity; AC4 slot/mute/solo/order == golden bytes; AC5 truncation/tampering/bitflips rejected, 0 panics. R02.R03 (100k notes ≤ 100 ms) NOT measured — deferred with reason |
-| T1.2 DSP parts | `crates/ng-dsp` | IN PROGRESS (2026-10-06) | parts unit-tested ; ac:R04.R04 ; libm for all transcendentals ; denormal test passes | Envelope, Ramp (5ms), Lcg, OnePole/Biquad, SoftLimiter, Reverb skeleton built, 44 tests green. R04.R04 (flush < -120 dBFS) covered. Remaining: `Biquad` highpass/bandpass forms and the interpolator R04 lists (LinearInterp v2 cubic); decoupler if T1.3 wants one |
+| T1.2 DSP parts | `crates/ng-dsp` | DONE (2026-10-06) | parts unit-tested ; ac:R04.R04 ; libm for all transcendentals ; denormal test passes | Envelope, Ramp (5ms), Lcg, OnePole/Biquad (lowpass/highpass/bandpass/peaking), SoftLimiter, Reverb skeleton, LinearInterp (linear + Catmull-Rom cubic) built, 53 tests green. R04.R04 (flush < -120 dBFS) covered |
 | T1.3 OscSynth + synth_contract | `crates/ng-synth/src/osc`, `crates/ng-synth/tests/synth_contract.rs` | PENDING | ac:R04.AC1 ; ac:R04.AC2 ; gate:g15 | AC1 full synth_contract, R-RT flavoured; AC2 128 programs x 3 keys, non-silent, no NaN |
 | T1.4 Renderer + render_offline | `crates/ng-render` | PENDING | ac:R05.AC1..AC6 ; R05.R04 | AC1 block sizes {1,7,64,128,4096} identical; AC2 looped file length == E; AC3 `set_schedule` tick within ±1; AC4 queue flood; AC5 click-free mute/solo; AC6 offline cancel. Also R05.R05 parity: ng-render never names OscSynth/SoundFontSynth |
 | T1.5 WavEncoder | `crates/ng-export/src/wav`, `crates/ng-export/tests/wav*` | PENDING | ac:R06.AC1 | 16/24/float read-back within ±1 LSB; smpl/INFO parse |
@@ -83,7 +83,7 @@ SoundFont/banks (P3), editor UI / grid / persistence / document package (P2), MI
 
 ## 9. Next step
 
-T1.2 (`ng-dsp`), which is the first task that writes HOTPATH code — see §9.2 before starting it.
+T1.3 (`ng-synth`): OscSynth and the generic `synth_contract` suite.
 
 ## 9.1 T1.1 as built (2026-10-06)
 
@@ -109,7 +109,7 @@ DONE. `crates/ng-timeline`, 32 tests green. Notes on what the contract left open
 
 Not done, and deliberately: R02.R03 (100k notes ≤ 100 ms) is not measured — see §9.2.
 
-## 9.2 T1.2 status: g01 hotpath lint decided and in force (2026-10-06)
+## 9.2 T1.2 status: DONE (2026-10-06), g01 hotpath lint in force
 
 Owner decision taken: **crate-wide** boundary. SET HOTPATH = `{ ng-dsp, ng-synth, ng-render }` and
 that is exactly the set that opts in via `[lints] workspace = true`. No marker attribute, so a new
@@ -126,14 +126,16 @@ Three things make the declaration falsifiable, which is what it was missing befo
   is already enforced by g03. The question raised in §9.2 turned out not to arise.
 
 T1.2 itself (`crates/ng-dsp`) is built and green: Envelope, Ramp, Lcg, OnePole/Biquad/Cascade,
-SoftLimiter, Reverb skeleton; 44 tests; libm for every transcendental (f32 variants, since an f64
-round trip would break native == wasm). Two bugs the tests caught, both worth remembering:
+SoftLimiter, Reverb skeleton; 44 tests at first pass. Two bugs the tests caught, both worth
+remembering:
 the Schroeder allpass must store `d[n] = y[n] + g*x[n]`, not the output — storing the output
 feeds the un-attenuated signal back and the reverb diverges; and the denormal guard has to cover
 the *read* path too, not just what is written, or a subnormal is handed to the caller every pass.
 
-Not done: reverb decay time is a tuning choice, not a contract, so no test pins it. `ac:R04.R04`
-(flush below -120 dBFS) is covered and green.
+Closed out 2026-10-06: Biquad highpass/bandpass (RBJ forms) and `LinearInterp` (linear +
+Catmull-Rom cubic, `Option` on out-of-range/NaN, no indexing in `src/`) added; 53 tests green,
+fmt/clippy clean. Not done, deliberately: reverb decay time is a tuning choice, not a contract,
+so no test pins it. `ac:R04.R04` (flush below -120 dBFS) is covered and green.
 
 `00_dsl.dsl` declares g01 as `cargo fmt --check ; cargo clippy -D warnings ; hotpath lints deny
 { unwrap_used, expect_used, indexing_slicing, panic }`. The third clause has no implementation

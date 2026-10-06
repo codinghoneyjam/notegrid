@@ -8,8 +8,7 @@ Edit the spec, then run `python scripts/check_task_state.py` to regenerate. Do n
 | state | tasks |
 |---|---|
 | NOT_STARTED | 36 |
-| IMPLEMENT | 1 |
-| DONE | 8 |
+| DONE | 9 |
 
 Total: 45 tasks.
 
@@ -30,7 +29,7 @@ Total: 45 tasks.
 | task | state | gates | done when |
 |---|---|---|---|
 | T1.1 TempoMap, compile, schedule bytes | **DONE** | - | ac:R02.AC1 ; ac:R02.AC2 ; ac:R02.AC3 ; ac:R02.AC4 ; ac:R02.AC5 |
-| T1.2 DSP parts | **IMPLEMENT** | - | Envelope, Ramp, Lcg, SoftLimiter, Reverb(skeleton) unit-tested ; ac:R04.R04 ; libm used for all transcendentals ; denormal test passes |
+| T1.2 DSP parts | **DONE** | - | Envelope, Ramp, Lcg, SoftLimiter, Reverb(skeleton) unit-tested ; ac:R04.R04 ; libm used for all transcendentals ; denormal test passes |
 | T1.3 OscSynth and synth_contract | **NOT_STARTED** | g15 | ac:R04.AC1 ; ac:R04.AC2 ; gate:g15 |
 | T1.4 Renderer and offline render | **NOT_STARTED** | - | ac:R05.AC1 ; ac:R05.AC2 ; ac:R05.AC3 ; ac:R05.AC4 ; ac:R05.AC5 ; ac:R05.AC6 ; R05.R04 loop counters |
 | T1.5 WavEncoder | **NOT_STARTED** | - | ac:R06.AC1 |

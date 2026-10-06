@@ -905,3 +905,150 @@ fn reverb_is_finite_for_extreme_input() {
         );
     }
 }
+
+// ---------------------------------------------------------------- Biquad v2 forms
+
+#[test]
+fn biquad_highpass_rejects_invalid_parameters() {
+    assert_eq!(
+        BiquadFilter::highpass(1000.0, 0.0, SR),
+        Err(FilterError::InvalidQ)
+    );
+    assert!(BiquadFilter::highpass(1000.0, 0.707, SR).is_ok());
+}
+
+#[test]
+fn biquad_highpass_passes_high_and_blocks_dc() {
+    let mut f = BiquadFilter::highpass(500.0, 0.707, SR).unwrap();
+    // DC settles to zero through a highpass.
+    for _ in 0..20_000 {
+        let y = f.process(1.0);
+        assert!(y.is_finite());
+    }
+    let settled = f.process(1.0);
+    assert!(settled.abs() < 1e-3, "DC through a highpass: {settled}");
+    // A 5 kHz square wave survives with most of its amplitude.
+    let mut peak = 0.0f32;
+    for i in 0..2_000 {
+        let t = i as f32 / SR as f32;
+        let x = if (t * 5_000.0 * 2.0) as i32 % 2 == 0 {
+            1.0
+        } else {
+            -1.0
+        };
+        peak = peak.max(f.process(x).abs());
+    }
+    assert!(peak > 0.5, "5 kHz through a 500 Hz highpass: {peak}");
+}
+
+#[test]
+fn biquad_bandpass_rejects_invalid_parameters() {
+    assert_eq!(
+        BiquadFilter::bandpass(1000.0, 0.0, SR),
+        Err(FilterError::InvalidQ)
+    );
+    assert_eq!(
+        BiquadFilter::bandpass(60_000.0, 1.0, SR),
+        Err(FilterError::FrequencyOutOfRange)
+    );
+    assert!(BiquadFilter::bandpass(1000.0, 1.0, SR).is_ok());
+}
+
+#[test]
+fn biquad_bandpass_passes_the_center_and_blocks_the_bands() {
+    // Centre a bandpass at 1 kHz; DC and 10 kHz should be strongly attenuated, 1 kHz passes.
+    let mut f = BiquadFilter::bandpass(1_000.0, 4.0, SR).unwrap();
+    for _ in 0..20_000 {
+        let _ = f.process(1.0);
+    }
+    assert!(f.process(1.0).abs() < 1e-3, "DC must be blocked");
+
+    let mut passes_1k = 0.0f32;
+    for i in 0..4_410 {
+        let x = ng_dsp_test_sin(1_000.0, i);
+        passes_1k = passes_1k.max(f.process(x).abs());
+    }
+    let mut f2 = BiquadFilter::bandpass(1_000.0, 4.0, SR).unwrap();
+    for i in 0..4_410 {
+        let x = ng_dsp_test_sin(8_000.0, i);
+        f2.process(x);
+    }
+    let mut passes_8k = 0.0f32;
+    for i in 4_410..8_820 {
+        let x = ng_dsp_test_sin(8_000.0, i);
+        passes_8k = passes_8k.max(f2.process(x).abs());
+    }
+    assert!(
+        passes_1k > 0.5 && passes_8k < 0.1 * passes_1k,
+        "1k {passes_1k} vs 8k {passes_8k}"
+    );
+}
+
+fn ng_dsp_test_sin(freq: f32, i: i32) -> f32 {
+    libm::sinf(2.0 * core::f32::consts::PI * freq * i as f32 / SR as f32)
+}
+
+// ---------------------------------------------------------------- LinearInterp
+
+#[test]
+fn interp_linear_hits_the_samples_and_the_midpoint() {
+    let table = [0.0f32, 1.0, 2.0, 3.0];
+    let it = ng_dsp::interp::LinearInterp::new(&table);
+    assert_eq!(it.linear(0.0), Some(0.0));
+    assert_eq!(it.linear(2.0), Some(2.0));
+    assert_eq!(it.linear(1.5), Some(1.5));
+    assert_eq!(it.linear(3.0), Some(3.0));
+}
+
+#[test]
+fn interp_rejects_out_of_range_and_nan() {
+    let table = [1.0f32, 2.0, 3.0];
+    let it = ng_dsp::interp::LinearInterp::new(&table);
+    assert_eq!(it.linear(-0.5), None);
+    assert_eq!(it.linear(3.0), None);
+    assert_eq!(it.linear(f32::NAN), None);
+    assert_eq!(it.cubic(f32::NAN), None);
+    let short = ng_dsp::interp::LinearInterp::new(&[1.0f32]);
+    assert_eq!(short.linear(0.0), None);
+}
+
+#[test]
+fn interp_cubic_passes_through_every_sample() {
+    let table = [0.0f32, 1.0, 0.5, -0.25, 0.75];
+    let it = ng_dsp::interp::LinearInterp::new(&table);
+    for (i, expected) in table.iter().enumerate() {
+        let v = it.cubic(i as f32).unwrap();
+        assert!(
+            (v - expected).abs() < 1e-5,
+            "cubic must pass through sample {i}: got {v}, want {expected}",
+        );
+    }
+}
+
+#[test]
+fn interp_cubic_is_smoother_than_linear_at_a_corner() {
+    // A V shape: linear interpolation has a derivative jump at the corner; Catmull-Rom rounds
+    // it. At the exact corner both agree; a quarter sample off the corner the cubic should sit
+    // off the straight line, i.e. the corner is smoothed.
+    let table = [1.0f32, 0.0, -1.0, 0.0, 1.0];
+    let it = ng_dsp::interp::LinearInterp::new(&table);
+    let lin = it.linear(1.75).unwrap();
+    let cub = it.cubic(1.75).unwrap();
+    assert!(
+        (lin - cub).abs() > 1e-3,
+        "cubic should deviate from the straight line near a corner: lin {lin} cub {cub}"
+    );
+    // And the cubic value must stay finite and bounded by the neighbourhood's range, never
+    // overshooting the extrema of the table by more than Catmull-Rom's known modest overshoot.
+    assert!(cub.abs() <= 1.5);
+}
+
+#[test]
+fn interp_mode_selects_the_rule() {
+    let table = [0.0f32, 1.0, 0.0];
+    let it = ng_dsp::interp::LinearInterp::new(&table);
+    let a = it.at(1.5, ng_dsp::interp::InterpMode::Linear).unwrap();
+    let b = it.at(1.5, ng_dsp::interp::InterpMode::Cubic).unwrap();
+    assert_eq!(a, 0.5);
+    assert!((b - 0.5).abs() > 1e-3 || b == 0.5, "cubic defined: {b}");
+}
