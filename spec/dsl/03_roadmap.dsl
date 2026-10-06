@@ -108,6 +108,7 @@ TASK T1.4 "Renderer and offline render"
   SCOPE { ROOT/crates/ng-render/** }   READS { ng-core, ng-timeline, ng-dsp }
   DONE WHEN { ac:R05.AC1 ; ac:R05.AC2 ; ac:R05.AC3 ; ac:R05.AC4 ; ac:R05.AC5 ; ac:R05.AC6 ; R05.R04 loop counters }
 TASK T1.5 "WavEncoder"
+  STATE DONE
   SCOPE { ROOT/crates/ng-export/src/wav/**, ROOT/crates/ng-export/tests/wav* }   READS { ng-core }
   DONE WHEN { ac:R06.AC1 }
 TASK T1.6 "native CLI render and cross-target determinism"

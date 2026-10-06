@@ -8,6 +8,7 @@ members = [
     "crates/ng-dsp",
     "crates/ng-synth",
     "crates/ng-render",
+    "crates/ng-export",
     "crates/ng-wasm",
     "crates/ng-cli",
     "spikes/sp2",

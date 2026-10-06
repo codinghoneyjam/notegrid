@@ -564,6 +564,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ng-export"
+version = "0.0.0"
+dependencies = [
+ "ng-core",
+ "ng-score",
+]
+
+[[package]]
 name = "ng-render"
 version = "0.0.0"
 dependencies = [

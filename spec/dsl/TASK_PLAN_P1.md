@@ -1,6 +1,6 @@
 # TASK_PLAN_P1.md — NoteGrid Phase P1 "Sounding vertical slice"
 
-Status: ACTIVE, T1.1–T1.4 DONE  | Date: 2026-10-06  | Owner: TBD
+Status: ACTIVE, T1.1–T1.5 DONE  | Date: 2026-10-06  | Owner: TBD
 Source of truth for scope: `03_roadmap.dsl` PHASE P1, `01_system.dsl`, `02_contracts.dsl`, `module/R0{2,4,5,6,7}*.dsl`, `module/T0{3,5}*.dsl`, `00_dsl.dsl`.
 
 ## 0. Executive summary
@@ -47,7 +47,7 @@ target from the module spec until a test actually measures it.
 | T1.2 DSP parts | `crates/ng-dsp` | DONE (2026-10-06) | parts unit-tested ; ac:R04.R04 ; libm for all transcendentals ; denormal test passes | Envelope, Ramp (5ms), Lcg, OnePole/Biquad (lowpass/highpass/bandpass/peaking), SoftLimiter, Reverb skeleton, LinearInterp (linear + Catmull-Rom cubic) built, 53 tests green. R04.R04 (flush < -120 dBFS) covered |
 | T1.3 OscSynth + synth_contract | `crates/ng-synth/src/osc`, `crates/ng-synth/tests/synth_contract.rs` | DONE (2026-10-06) | ac:R04.AC1 ; ac:R04.AC2 ; gate:g15 | AC1: full R04.R01 synth_contract green on OscSynth; AC2: 128 programs x 3 keys non-silent, no NaN |
 | T1.4 Renderer + render_offline | `crates/ng-render` | DONE (2026-10-06) | ac:R05.AC1..AC6 ; R05.R04 | AC1 block sizes {1,7,64,128,4096} identical; AC2 looped file length == E; AC3 `set_schedule` tick within ±1; AC4 queue flood (700 notes, 512-cap, counted forced offs); AC5 click-free mute toggle (ramp per sample); AC6 cancel at progress callback. R05.R04: 100-pass loop counters exact; R05.R02 block independence verified; TestSynth double keeps ng-synth out of tests |
-| T1.5 WavEncoder | `crates/ng-export/src/wav`, `crates/ng-export/tests/wav*` | PENDING | ac:R06.AC1 | 16/24/float read-back within ±1 LSB; smpl/INFO parse |
+| T1.5 WavEncoder | `crates/ng-export/src/wav`, `crates/ng-export/tests/wav*` | DONE (2026-10-06) | ac:R06.AC1 | 16/24/float read-back within ±1 LSB; smpl/INFO parse; deterministic bytes; clip count reported via `last_clip_count()` |
 | T1.6 CLI render + determinism | `crates/ng-cli`, `spec/fixture/golden` | PENDING | ng-cli render writes WAV into music_output via FsSink(C12) ; g05, g12, g15 | g05 currently covers canonical only; it gains the render path here |
 | T1.7 engine ABI, worklet, AudioEngine | `crates/ng-wasm`, `packages/playback`, `packages/export-service/src/wav` | PENDING | ac:R07.AC1 ; ac:R07.AC3 ; ac:T03.AC1 ; ac:T05.AC1 ; g10, g14, g04 | AC1 Node drives example project -> schedule -> offline WAV == native; AC3 worklet renders 128-frame blocks on chromium/firefox/webkit with byte-compile fallback; AC1 T05 example WAV == ng-cli bytes. g10/g14 cannot pass before T1.6 |
 | T1.8 measure budgets | `docs/budgets.md`, `tools/perf` | PENDING | every BUDGET.* [MEASURE] recorded, confirmed or amended by DECIDE | tools/perf does not exist yet; last task by design |
@@ -83,7 +83,7 @@ SoundFont/banks (P3), editor UI / grid / persistence / document package (P2), MI
 
 ## 9. Next step
 
-T1.5 (`ng-export`): WavEncoder.
+T1.6 (`ng-cli`): native CLI render and cross-target determinism (g05, g12, g15).
 
 ## 9.1 T1.1 as built (2026-10-06)
 
@@ -130,6 +130,13 @@ DONE. `crates/ng-synth`, 7 tests green (contract 5 + rt_rules 2). Notes:
   ties by slot number. Same input to two instances must therefore steal identically,
   which is what the bit-identical contract item relies on.
 - **Hat open/closed choke** each other per slot, matching R04.DESIGN.
+
+## 9.5 T1.5 as built (2026-10-06)
+
+DONE. `crates/ng-export`, 6 tests green. RIFF/WAVE: fmt/data, LIST>INFO+INAM, fact for
+float, smpl when loop_points, even chunk padding, `> 4 GiB -> E_ENCODE`, clip count exposed
+as `WavEncoder::last_clip_count()`. Dump runs: int16 within ±1 LSB, int24 within ±1 LSB,
+float32 bit-close; deterministic same-input-same-bytes.
 
 ## 9.4 T1.4 as built (2026-10-06)
 
