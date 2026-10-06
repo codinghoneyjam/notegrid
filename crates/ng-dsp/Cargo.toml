@@ -1,0 +1,16 @@
+[package]
+name = "ng-dsp"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+
+# g01: this crate is in SET HOTPATH, so the deny list applies. It is the first crate whose
+# first line of code is written under these lints rather than retrofitted with them.
+[lints]
+workspace = true
+
+[dependencies]
+ng-core = { path = "../ng-core" }
+# R04.DESIGN: libm for sin/exp/pow/log so native and wasm agree bit-for-bit (R-RT-4).
+# The pin is in Cargo.lock; SP-2 recorded native == wasm-in-Node with it.
+libm = "0.2"

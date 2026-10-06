@@ -556,6 +556,14 @@ name = "ng-core"
 version = "0.0.0"
 
 [[package]]
+name = "ng-dsp"
+version = "0.0.0"
+dependencies = [
+ "libm",
+ "ng-core",
+]
+
+[[package]]
 name = "ng-score"
 version = "0.0.0"
 dependencies = [

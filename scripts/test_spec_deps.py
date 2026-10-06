@@ -22,7 +22,8 @@ class ParserTest(unittest.TestCase):
             root = Path(tmp)
             for name, body in modules.items():
                 write_module(root, name, body)
-            return spec_deps.resolve(spec_deps.parse(root))
+            edges, _ = spec_deps.resolve(spec_deps.parse(root))
+            return edges
 
     # --- the two DEPENDS_ON shapes that appear in the real spec ---
 
@@ -80,15 +81,21 @@ END
             "ng-wasm": {ALL_MARKER},
             "ng-cli": {ALL_MARKER},
         }
-        got = spec_deps.resolve(graph, assembly={"ng-wasm", "ng-cli"})
+        got, _ = spec_deps.resolve(graph, assembly={"ng-wasm", "ng-cli"})
         self.assertEqual(got["ng-wasm"], {"ng-core", "ng-timeline"})
         self.assertEqual(got["ng-cli"], {"ng-core", "ng-timeline"})
 
     def test_all_crates_resolves_only_against_crates_that_exist(self) -> None:
         """A crate not yet in the workspace must not be demanded as a dependency."""
         graph = {"ng-core": set(), "ng-wasm": {ALL_MARKER}}
-        got = spec_deps.resolve(graph, existing={"ng-core", "ng-wasm"})
+        got, _ = spec_deps.resolve(graph, existing={"ng-core", "ng-wasm"})
         self.assertEqual(got["ng-wasm"], {"ng-core"})
+
+    def test_all_crates_is_an_upper_bound_not_an_obligation(self) -> None:
+        """ng-cli may depend on nothing yet; the gate must not require it to depend on everything."""
+        got, open_bound = spec_deps.resolve({"ng-core": set(), "ng-cli": {ALL_MARKER}})
+        self.assertEqual(got["ng-cli"], {"ng-core"})
+        self.assertIn("ng-cli", open_bound, "ALL crates crates get an upper bound")
 
     def test_annotations_are_stripped(self) -> None:
         got = self.parse(
@@ -156,8 +163,11 @@ END
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             write_module(root, "R02_timeline.dsl", "MODULE R02 t\n  CRATES { ng-timeline }\n  DEPENDS_ON { ng-core, ng-typo }\nEND\n")
-            graph = spec_deps.resolve(spec_deps.parse(root))
-            self.assertEqual(spec_deps.unknown_deps(graph, {"ng-timeline", "ng-core"}), ["ng-timeline -> ng-typo"])
+            graph, _ = spec_deps.resolve(spec_deps.parse(root))
+            self.assertEqual(
+                spec_deps.unknown_deps(graph, {"ng-timeline", "ng-core"}),
+                ["ng-timeline -> ng-typo"],
+            )
 
 
 class RealSpecTest(unittest.TestCase):
@@ -166,9 +176,10 @@ class RealSpecTest(unittest.TestCase):
     def test_real_spec_parses_and_has_no_unknown_deps(self) -> None:
         from paths import SPEC_DIR
 
-        graph, units, assembly = spec_deps.combined(SPEC_DIR)
+        graph, units, _ = spec_deps.combined(SPEC_DIR)
         self.assertTrue(graph, "spec produced no crates")
-        self.assertEqual(spec_deps.unknown_deps(spec_deps.resolve(graph), units), [])
+        edges, _ = spec_deps.resolve(graph)
+        self.assertEqual(spec_deps.unknown_deps(edges, units), [])
 
     def test_set_crates_matches_the_crate_lines(self) -> None:
         """SET CRATES and the ARCHITECTURE CRATE lines must cover the same members."""

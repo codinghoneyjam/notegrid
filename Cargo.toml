@@ -5,6 +5,7 @@ members = [
     "crates/ng-core",
     "crates/ng-score",
     "crates/ng-timeline",
+    "crates/ng-dsp",
     "crates/ng-wasm",
     "crates/ng-cli",
     "spikes/sp2",
@@ -14,6 +15,17 @@ members = [
 edition = "2021"
 license = "MIT"
 repository = ""
+
+# g01 declares these lints as part of the gate, and the implementation of that declaration
+# is here. Crates in SET HOTPATH (spec/dsl/00_dsl.dsl) opt in with `[lints] workspace = true`;
+# crates that legitimately need unwrap/expect/indexing outside the render path stay out of
+# HOTPATH. scripts/check_hotpath_lints.py fails if a HOTPATH crate forgets to opt in or if an
+# unsafe/`extern "C"` slips in, so this cannot silently lapse the way the lint table did.
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+indexing_slicing = "deny"
+panic = "deny"
 
 [profile.release]
 opt-level = 3
