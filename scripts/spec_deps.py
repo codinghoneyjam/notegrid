@@ -247,29 +247,35 @@ def resolve(
     graph: dict[str, set[str]],
     existing: set[str] | None = None,
     assembly: set[str] | None = None,
-) -> dict[str, set[str]]:
-    """Expand ALL_MARKER into concrete edges.
+) -> tuple[dict[str, set[str]], set[str]]:
+    """Expand ALL_MARKER into concrete edges. Returns (crate -> edges, open_bound crates).
 
     Two exclusions, both from the spec's own sets:
 
     - `existing`: ALL resolves against crates that actually exist (the cargo workspace), not
       against every crate the spec ever mentions. A crate that does not exist yet cannot be
       depended upon, so requiring it would make the gate unsatisfiable before its task runs.
-      The moment a new crate joins the workspace, every ALL crate must pick it up -- that is
-      the forcing function we want.
     - `assembly`: SET ASSEMBLY marks the entry points (ng-wasm, ng-cli, app). "ALL crates"
       means every crate an entry point composes, which excludes the other entry points:
       ng-cli does not depend on ng-wasm, and vice versa.
+
+    A crate written as `ALL crates` gets an upper bound, not an obligation: it MAY depend on any
+    existing crate and is free to depend on none of them yet. An explicit list is an exact
+    contract in both directions. This distinction matters in practice -- requiring ng-cli to
+    depend on ng-timeline the day ng-timeline appears would make the gate unsatisfiable during
+    the very task that creates it.
     """
     pool = set(graph) if existing is None else set(existing)
     assembly = assembly or set()
-    out = {}
+    edges: dict[str, set[str]] = {}
+    open_bound: set[str] = set()
     for name, deps in graph.items():
         if ALL_MARKER in deps:
-            out[name] = pool - assembly - {name}
+            edges[name] = pool - assembly - {name}
+            open_bound.add(name)
         else:
-            out[name] = set(deps)
-    return out
+            edges[name] = set(deps)
+    return edges, open_bound
 
 
 def unknown_deps(graph: dict[str, set[str]], units: set[str]) -> list[str]:

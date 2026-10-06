@@ -41,7 +41,7 @@ workspace_members = {
 # pick it up.
 # `ALL crates` means "every crate the spec declares that actually exists". Build tooling
 # (xtask, ng-spike-sp2) is not an architectural crate and is excluded from the expansion.
-ALLOWED = resolve(
+ALLOWED, OPEN_BOUND = resolve(
     ALLOWED_RAW,
     existing=set(ALLOWED_RAW) & workspace_members,
     assembly=ASSEMBLY & workspace_members,
@@ -77,15 +77,17 @@ for pkg in META["packages"]:
         for dep in pkg["dependencies"]
         if dep["name"].replace("_", "-") in (workspace_members | set(TOOLING))
     }
-    if actual != ALLOWED[name]:
-        extra = sorted(actual - ALLOWED[name])
-        missing = sorted(ALLOWED[name] - actual)
-        detail = []
-        if extra:
-            detail.append(f"undeclared {extra}")
-        if missing:
-            detail.append(f"declared but unused {missing}")
-        errors.append(f"{name}: {'; '.join(detail) or 'set mismatch'}")
+    # `ALL crates` is an upper bound (may depend on anything, is not required to depend on
+    # everything); an explicit list is exact. Undeclared deps always fail either way.
+    extra = sorted(actual - ALLOWED[name])
+    missing = sorted(ALLOWED[name] - actual)
+    detail = []
+    if extra:
+        detail.append(f"undeclared {extra}")
+    if missing and name not in OPEN_BOUND:
+        detail.append(f"declared but unused {missing}")
+    if detail:
+        errors.append(f"{name}: {'; '.join(detail)}")
 
 # extern "C" / unsafe isolation check (only crates/* scanned; spikes/ and scripts/ exempt as throwaway)
 for rs in CRATES_DIR.rglob("*.rs"):

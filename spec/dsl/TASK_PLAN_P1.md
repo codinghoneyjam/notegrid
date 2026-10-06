@@ -43,7 +43,7 @@ target from the module spec until a test actually measures it.
 
 | task | scope | state | done when (roadmap) | notes on the checks |
 |---|---|---|---|---|
-| T1.1 TempoMap, compile, schedule bytes | `crates/ng-timeline`, `spec/fixture/golden/schedule` | PENDING | ac:R02.AC1..AC5 | AC1 124bpm -> 341419 @44100 / 371613 @48000; AC2 tempo-change points checked against an exact-rational reference; AC3 property bpm∈[20,400], sr∈{44100,48000}, `sample_to_tick(tick_to_sample(t))==t`; AC4 slot/mute/solo/order == golden bytes; AC5 truncated+tampered bytes rejected, fuzz 0 panics |
+| T1.1 TempoMap, compile, schedule bytes | `crates/ng-timeline`, `spec/fixture/golden/schedule` | DONE (2026-10-06) | ac:R02.AC1..AC5 | AC1 124bpm -> 341419 @44100 / 371613 @48000; AC2 tempo-change points vs exact-rational reference (`scripts/gen_tempo_vectors.py` + in-crate integer reference); AC3 property bpm∈[20,400], sr∈{44100,48000}, round trip + strict monotonicity; AC4 slot/mute/solo/order == golden bytes; AC5 truncation/tampering/bitflips rejected, 0 panics. R02.R03 (100k notes ≤ 100 ms) NOT measured — deferred with reason |
 | T1.2 DSP parts | `crates/ng-dsp` | PENDING | parts unit-tested ; ac:R04.R04 ; libm for all transcendentals ; denormal test passes | Envelope, Ramp (5ms), Lcg, SoftLimiter, Reverb skeleton; R04.R04 = reverb flushes to < -120 dBFS |
 | T1.3 OscSynth + synth_contract | `crates/ng-synth/src/osc`, `crates/ng-synth/tests/synth_contract.rs` | PENDING | ac:R04.AC1 ; ac:R04.AC2 ; gate:g15 | AC1 full synth_contract, R-RT flavoured; AC2 128 programs x 3 keys, non-silent, no NaN |
 | T1.4 Renderer + render_offline | `crates/ng-render` | PENDING | ac:R05.AC1..AC6 ; R05.R04 | AC1 block sizes {1,7,64,128,4096} identical; AC2 looped file length == E; AC3 `set_schedule` tick within ±1; AC4 queue flood; AC5 click-free mute/solo; AC6 offline cancel. Also R05.R05 parity: ng-render never names OscSynth/SoundFontSynth |
@@ -83,21 +83,44 @@ SoundFont/banks (P3), editor UI / grid / persistence / document package (P2), MI
 
 ## 9. Next step
 
-T1.1, from state ORIENT. Nothing blocks it: its READS (`ng-core`, `ng-score`) exist, its SCOPE
-is empty, and the contracts it needs are already written — C0.1..C0.3 (tick, mpq, the single
-u128 accumulate + round-once rule), C3 (schedule binary), C1 (project input). Read `00_dsl.dsl`
-for the gates and GLOBAL_DENY, `module/R02_timeline.dsl` for compile order and the REQUIRE list,
-then this §3 row. Start at TEST_FIRST with ac:R02.AC1 (124bpm -> 341419 @44100) as the first
-failing test; AC2 needs a Python `fractions` reference script, AC4 needs the first golden bytes,
-AC5 needs a fuzz target.
+T1.2 (`ng-dsp`), which is the first task that writes HOTPATH code — see §9.2 before starting it.
 
-Adding `crates/ng-timeline` to the workspace makes g03 (`scripts/check_deps.py`) compare the
-cargo graph against MODULE.DEPENDS_ON, so the crate must declare exactly `{ ng-core, ng-score }`.
-Any further crate or a third-party dep is BLOCKED, not a judgement call.
+## 9.1 T1.1 as built (2026-10-06)
 
-Watch three traps that the P0 work already hit:
-- GLOBAL_DENY forbids any conversion that touches `sample_rate` and `bpm` outside TempoMap
-  (R02.R02 is a grep-deny rule, not a code comment).
-- No `HashMap` iteration order, no wall clock, no unseeded randomness anywhere in compile or
-  serialisation — R02.R01 requires same input to same bytes.
-- `tools/perf/` (T1.8 scope) does not exist; create it then, not now.
+DONE. `crates/ng-timeline`, 32 tests green. Notes on what the contract left open:
+
+- **R02.R02 is enforced by type, not by grep.** The crate never sees a float bpm: `TempoMap`
+  takes `(Tick, mpq)` and `from_project` routes bpm→mpq through `ng_score::TempoItem::mpq()`, so
+  C0.2 keeps one definition and no other crate can form a conversion.
+- **`sample_to_tick` is a binary search over `tick_to_sample`**, defined as the largest tick whose
+  sample does not exceed the input. The round trip holds because the forward function is
+  monotonic by construction, not because both directions were written to agree. Not hot: display
+  and C2.6 tick preservation only.
+- **AC2's second opinion lives outside the crate** — `scripts/gen_tempo_vectors.py` computes
+  expected positions with Python `Fraction` and writes `spec/fixture/tempo/*.json`; CI runs it
+  with `--check`. The in-crate test carries a second integer-only implementation as well, so a
+  mistake in the fixture generator alone does not pass unnoticed. `scripts/` is T0.6 scope, which
+  is why this needed a note rather than silence.
+- **Golden**: `spec/fixture/golden/schedule/example_44100.ngsc`, recorded in
+  `docs/golden_changes.md`. The test creates it on first run and fails that run deliberately.
+- **Segment boundary semantics were the one real bug found**: the stretch ending at tempo change
+  *i+1* is priced with segment *i*'s mpq, not *i+1*'s. The AC2 fixtures caught it; a
+  single-tempo test would not have.
+
+Not done, and deliberately: R02.R03 (100k notes ≤ 100 ms) is not measured — see §9.2.
+
+## 9.2 Before T1.2: the g01 hotpath lint gap
+
+`00_dsl.dsl` declares g01 as `cargo fmt --check ; cargo clippy -D warnings ; hotpath lints deny
+{ unwrap_used, expect_used, indexing_slicing, panic }`. The third clause has no implementation
+anywhere: no `[lints]` in any `Cargo.toml`, no `clippy.toml`, no HOTPATH marker in the tree. Those
+clippy lints are in the restriction group and are off unless enabled. g01 passes today because
+fmt and clippy pass, not because the deny list is in force.
+
+This is a P0 residual, not a T1.2 problem — but T1.2 is where it first bites, since `ng-dsp` is
+the HOTPATH crate that GLOBAL_DENY protects with exactly those four lints. Owner decision needed
+on the HOTPATH boundary (crate-wide vs marker-driven), plus the `ng-wasm` exemption (`unsafe`
+and slice indexing are unavoidable at a C ABI). Record the outcome as a DECIDE entry.
+
+Recorded by T1.1 because the crate was the first to satisfy `MODULE.DEPENDS_ON` without any
+g03 edit, which is what made the gap visible.

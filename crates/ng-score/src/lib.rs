@@ -9,7 +9,7 @@ pub mod validate;
 pub use canonical::to_canonical_json;
 pub use gm::gm_tables;
 pub use migrate::migrate;
-pub use model::{Lane, LaneKind, LoopRegion, MeterItem, Note, Project, TempoItem};
+pub use model::{Lane, LaneKind, LaneKindSerde, LoopRegion, MeterItem, Note, Project, TempoItem};
 pub use validate::{validate, validate_bytes, Issue, Report};
 
 /// C2 trait surface (ng-score).

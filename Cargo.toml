@@ -4,6 +4,7 @@ members = [
     "xtask",
     "crates/ng-core",
     "crates/ng-score",
+    "crates/ng-timeline",
     "crates/ng-wasm",
     "crates/ng-cli",
     "spikes/sp2",
