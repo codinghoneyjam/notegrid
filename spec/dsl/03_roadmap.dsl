@@ -104,6 +104,7 @@ TASK T1.3 "OscSynth and synth_contract"
   SCOPE { ROOT/crates/ng-synth/src/osc/**, ROOT/crates/ng-synth/tests/synth_contract.rs }   READS { ng-core, ng-dsp }
   DONE WHEN { ac:R04.AC1 ; ac:R04.AC2 ; gate:g15 }
 TASK T1.4 "Renderer and offline render"
+  STATE DONE
   SCOPE { ROOT/crates/ng-render/** }   READS { ng-core, ng-timeline, ng-dsp }
   DONE WHEN { ac:R05.AC1 ; ac:R05.AC2 ; ac:R05.AC3 ; ac:R05.AC4 ; ac:R05.AC5 ; ac:R05.AC6 ; R05.R04 loop counters }
 TASK T1.5 "WavEncoder"

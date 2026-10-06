@@ -7,6 +7,7 @@ members = [
     "crates/ng-timeline",
     "crates/ng-dsp",
     "crates/ng-synth",
+    "crates/ng-render",
     "crates/ng-wasm",
     "crates/ng-cli",
     "spikes/sp2",

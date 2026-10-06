@@ -7,8 +7,8 @@ Edit the spec, then run `python scripts/check_task_state.py` to regenerate. Do n
 
 | state | tasks |
 |---|---|
-| NOT_STARTED | 35 |
-| DONE | 10 |
+| NOT_STARTED | 34 |
+| DONE | 11 |
 
 Total: 45 tasks.
 
@@ -31,7 +31,7 @@ Total: 45 tasks.
 | T1.1 TempoMap, compile, schedule bytes | **DONE** | - | ac:R02.AC1 ; ac:R02.AC2 ; ac:R02.AC3 ; ac:R02.AC4 ; ac:R02.AC5 |
 | T1.2 DSP parts | **DONE** | - | Envelope, Ramp, Lcg, SoftLimiter, Reverb(skeleton) unit-tested ; ac:R04.R04 ; libm used for all transcendentals ; denormal test passes |
 | T1.3 OscSynth and synth_contract | **DONE** | g15 | ac:R04.AC1 ; ac:R04.AC2 ; gate:g15 |
-| T1.4 Renderer and offline render | **NOT_STARTED** | - | ac:R05.AC1 ; ac:R05.AC2 ; ac:R05.AC3 ; ac:R05.AC4 ; ac:R05.AC5 ; ac:R05.AC6 ; R05.R04 loop counters |
+| T1.4 Renderer and offline render | **DONE** | - | ac:R05.AC1 ; ac:R05.AC2 ; ac:R05.AC3 ; ac:R05.AC4 ; ac:R05.AC5 ; ac:R05.AC6 ; R05.R04 loop counters |
 | T1.5 WavEncoder | **NOT_STARTED** | - | ac:R06.AC1 |
 | T1.6 native CLI render and cross-target determinism | **NOT_STARTED** | g05, g12, g15 | ng-cli render writes WAV into music_output via FsSink(C12) ; gate:g05 ; gate:g12 ; gate:g15 |
 | T1.7 engine ABI, worklet, minimal AudioEngine | **NOT_STARTED** | g10, g14, g04 | ac:R07.AC1 ; ac:R07.AC3 ; ac:T03.AC1 ; ac:T05.AC1 ; gate:g10 ; gate:g14 ; gate:g04 |

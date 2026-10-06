@@ -564,6 +564,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ng-render"
+version = "0.0.0"
+dependencies = [
+ "libm",
+ "ng-core",
+ "ng-dsp",
+ "ng-timeline",
+]
+
+[[package]]
 name = "ng-score"
 version = "0.0.0"
 dependencies = [

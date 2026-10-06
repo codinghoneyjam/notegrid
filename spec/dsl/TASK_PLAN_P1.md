@@ -1,6 +1,6 @@
 # TASK_PLAN_P1.md — NoteGrid Phase P1 "Sounding vertical slice"
 
-Status: ACTIVE, T1.1–T1.3 DONE  | Date: 2026-10-06  | Owner: TBD
+Status: ACTIVE, T1.1–T1.4 DONE  | Date: 2026-10-06  | Owner: TBD
 Source of truth for scope: `03_roadmap.dsl` PHASE P1, `01_system.dsl`, `02_contracts.dsl`, `module/R0{2,4,5,6,7}*.dsl`, `module/T0{3,5}*.dsl`, `00_dsl.dsl`.
 
 ## 0. Executive summary
@@ -46,7 +46,7 @@ target from the module spec until a test actually measures it.
 | T1.1 TempoMap, compile, schedule bytes | `crates/ng-timeline`, `spec/fixture/golden/schedule` | DONE (2026-10-06) | ac:R02.AC1..AC5 | AC1 124bpm -> 341419 @44100 / 371613 @48000; AC2 tempo-change points vs exact-rational reference (`scripts/gen_tempo_vectors.py` + in-crate integer reference); AC3 property bpm∈[20,400], sr∈{44100,48000}, round trip + strict monotonicity; AC4 slot/mute/solo/order == golden bytes; AC5 truncation/tampering/bitflips rejected, 0 panics. R02.R03 (100k notes ≤ 100 ms) NOT measured — deferred with reason |
 | T1.2 DSP parts | `crates/ng-dsp` | DONE (2026-10-06) | parts unit-tested ; ac:R04.R04 ; libm for all transcendentals ; denormal test passes | Envelope, Ramp (5ms), Lcg, OnePole/Biquad (lowpass/highpass/bandpass/peaking), SoftLimiter, Reverb skeleton, LinearInterp (linear + Catmull-Rom cubic) built, 53 tests green. R04.R04 (flush < -120 dBFS) covered |
 | T1.3 OscSynth + synth_contract | `crates/ng-synth/src/osc`, `crates/ng-synth/tests/synth_contract.rs` | DONE (2026-10-06) | ac:R04.AC1 ; ac:R04.AC2 ; gate:g15 | AC1: full R04.R01 synth_contract green on OscSynth; AC2: 128 programs x 3 keys non-silent, no NaN |
-| T1.4 Renderer + render_offline | `crates/ng-render` | PENDING | ac:R05.AC1..AC6 ; R05.R04 | AC1 block sizes {1,7,64,128,4096} identical; AC2 looped file length == E; AC3 `set_schedule` tick within ±1; AC4 queue flood; AC5 click-free mute/solo; AC6 offline cancel. Also R05.R05 parity: ng-render never names OscSynth/SoundFontSynth |
+| T1.4 Renderer + render_offline | `crates/ng-render` | DONE (2026-10-06) | ac:R05.AC1..AC6 ; R05.R04 | AC1 block sizes {1,7,64,128,4096} identical; AC2 looped file length == E; AC3 `set_schedule` tick within ±1; AC4 queue flood (700 notes, 512-cap, counted forced offs); AC5 click-free mute toggle (ramp per sample); AC6 cancel at progress callback. R05.R04: 100-pass loop counters exact; R05.R02 block independence verified; TestSynth double keeps ng-synth out of tests |
 | T1.5 WavEncoder | `crates/ng-export/src/wav`, `crates/ng-export/tests/wav*` | PENDING | ac:R06.AC1 | 16/24/float read-back within ±1 LSB; smpl/INFO parse |
 | T1.6 CLI render + determinism | `crates/ng-cli`, `spec/fixture/golden` | PENDING | ng-cli render writes WAV into music_output via FsSink(C12) ; g05, g12, g15 | g05 currently covers canonical only; it gains the render path here |
 | T1.7 engine ABI, worklet, AudioEngine | `crates/ng-wasm`, `packages/playback`, `packages/export-service/src/wav` | PENDING | ac:R07.AC1 ; ac:R07.AC3 ; ac:T03.AC1 ; ac:T05.AC1 ; g10, g14, g04 | AC1 Node drives example project -> schedule -> offline WAV == native; AC3 worklet renders 128-frame blocks on chromium/firefox/webkit with byte-compile fallback; AC1 T05 example WAV == ng-cli bytes. g10/g14 cannot pass before T1.6 |
@@ -83,7 +83,7 @@ SoundFont/banks (P3), editor UI / grid / persistence / document package (P2), MI
 
 ## 9. Next step
 
-T1.4 (`ng-render`): Renderer FSM, `render_offline`, R05.AC1..AC6, loop counters.
+T1.5 (`ng-export`): WavEncoder.
 
 ## 9.1 T1.1 as built (2026-10-06)
 
@@ -130,6 +130,28 @@ DONE. `crates/ng-synth`, 7 tests green (contract 5 + rt_rules 2). Notes:
   ties by slot number. Same input to two instances must therefore steal identically,
   which is what the bit-identical contract item relies on.
 - **Hat open/closed choke** each other per slot, matching R04.DESIGN.
+
+## 9.4 T1.4 as built (2026-10-06)
+
+DONE. `crates/ng-render`, 7 tests green. Notes:
+
+- **One sub-sample clock, two transports**: `out_clock` is monotonic and keys the note-off
+  queue; `pos_sample` is the transport position that wraps at loop end. That is why a loop
+  wrap never disturbs already-scheduled offs (C2.1).
+- **Sample-accurate boundaries**: render_block splits at the earliest of {queued off, next
+  note start, loop end, total end}; at equal time, offs fire before ons (C2.2), ons fire
+  before the wrap. A zero-length segment is how we land exactly on the boundary without
+  producing audio for it.
+- **Queue flood**: cap 512; on overflow the earliest off is forced immediately and counted
+  (`dropped_offs`), so a 700-note flood over 8 voices is panic-free and bounded.
+- **Click-free mix changes**: while any slot's 5 ms gain ramp is unfinished, render_block
+  drops to 1-sample steps and pushes each ramp step into the synth, so no two adjacent
+  samples see different gains. AC5's threshold (max adjacent step < 0.05) has wide margin
+  in practice.
+- **R05.R05 kept honest two ways**: ng-render never names a synth implementation (builds
+  against the `Synth` trait), and its own test double (`TestSynth`, ~50 ms sine release)
+  keeps `ng-synth` out of the crate's tests — g03 and 01_system.dsl both stay exact.
+- **Tail fold** truncates to E with loop-position folding of `p >= E` onto `p mod E`.
 
 ## 9.2 T1.2 status: DONE (2026-10-06), g01 hotpath lint in force
 
