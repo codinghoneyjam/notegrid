@@ -1,6 +1,7 @@
 // <META - FILE SUMMARY - C ABI skeleton (C4): version, alloc/free, validate/migrate/canonical, gm_tables; all unsafe isolated here. | L1-150>
 
 use ng_score::Project;
+use ng_timeline::TempoMap;
 use std::sync::Mutex;
 
 static RESULT: Mutex<Vec<u8>> = Mutex::new(Vec::new());
@@ -171,6 +172,82 @@ pub extern "C" fn ng_project_canonical(ptr: u32, len: u32) -> i32 {
         Err(e) => {
             set_error(e.code, &e.message);
             -3
+        }
+    }
+}
+
+/// Composition glue for a headless one-shot render: project bytes -> rendered WAV bytes.
+///
+/// The ABI crate is the composition root (01_system.dsl), so it wires OscSynth into the
+/// Renderer and out through the WavEncoder; neither ng-synth nor ng-render names the other.
+fn render_project(
+    bytes: &[u8],
+    sample_rate: u32,
+    depth: ng_export::wav::WavDepth,
+) -> Result<Vec<u8>, (&'static str, String)> {
+    let project = ng_score::migrate(bytes).map_err(|e| (e.code, e.message))?;
+    let report = ng_score::validate(&project);
+    if !report.errors.is_empty() {
+        return Err((
+            "E_FORMAT",
+            report
+                .errors
+                .iter()
+                .map(|e| format!("{} at {}", e.code, e.path))
+                .collect::<Vec<_>>()
+                .join(", "),
+        ));
+    }
+    let schedule =
+        ng_timeline::compile(&project, sample_rate).map_err(|e| ("E_FORMAT", format!("{e}")))?;
+    let loop_points = match (
+        TempoMap::from_project(&project, sample_rate),
+        project.loop_region,
+    ) {
+        (Ok(tm), Some(region)) => {
+            let start = tm.tick_to_sample(region.start) as u32;
+            let end = tm.tick_to_sample(region.end) as u32;
+            Some((start, end))
+        }
+        _ => None,
+    };
+    let synth = ng_synth::osc::OscSynth::new(sample_rate, 64);
+    let opts = ng_render::OfflineOptions::default();
+    let pcm = ng_render::render_offline(schedule, synth, &opts, |_| true)
+        .map_err(|e| ("E_RENDER", format!("{e:?}")))?;
+    let meta = ng_core::EncodeMeta {
+        title: Some(project.title.clone()),
+        loop_points,
+    };
+    let enc = ng_export::wav::WavEncoder::new();
+    ng_core::AudioEncoder::encode(
+        &enc,
+        &pcm,
+        &meta,
+        &ng_export::wav::WavOptions {
+            depth,
+            ..Default::default()
+        },
+    )
+    .map_err(|e| (e.code, e.message))
+}
+
+#[no_mangle]
+pub extern "C" fn ng_render_wav(ptr: u32, len: u32, sr: u32, depth: u32) -> i32 {
+    let Some(bytes) = read_bytes(ptr, len) else {
+        set_error("E_FORMAT", "invalid input pointer");
+        return -2;
+    };
+    let depth = match depth {
+        0 => ng_export::wav::WavDepth::Int16,
+        1 => ng_export::wav::WavDepth::Int24,
+        _ => ng_export::wav::WavDepth::Float32,
+    };
+    match render_project(bytes, sr, depth) {
+        Ok(wav) => set_result(wav),
+        Err((code, msg)) => {
+            set_error(code, &msg);
+            -4
         }
     }
 }

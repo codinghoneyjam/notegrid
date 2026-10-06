@@ -10,3 +10,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 ng-core = { path = "../ng-core" }
 ng-score = { path = "../ng-score" }
+ng-timeline = { path = "../ng-timeline" }
+ng-synth = { path = "../ng-synth" }
+ng-render = { path = "../ng-render" }
+ng-export = { path = "../ng-export" }

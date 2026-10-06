@@ -24,6 +24,7 @@ interface WasmExports {
   ng_project_migrate(ptr: number, len: number): number;
   ng_project_canonical(ptr: number, len: number): number;
   ng_gm_tables(): number;
+  ng_render_wav(ptr: number, len: number, sr: number, depth: number): number;
   memory: WebAssembly.Memory;
 }
 
@@ -44,12 +45,12 @@ export class Ng {
     return this.exports.ng_abi_version();
   }
 
-  private call(fn: (ptr: number, len: number) => number, input: Uint8Array): { out: Uint8Array; aux: Uint8Array } {
+  private call(fn: (ptr: number, len: number, ...rest: number[]) => number, input: Uint8Array, ...rest: number[]): { out: Uint8Array; aux: Uint8Array } {
     const ex = this.exports;
     const inPtr = ex.ng_alloc(input.length);
     try {
       new Uint8Array(ex.memory.buffer, inPtr, input.length).set(input);
-      const rc = fn(inPtr, input.length);
+      const rc = fn(inPtr, input.length, ...rest);
       if (rc !== 0) {
         throw this.readError(rc);
       }
@@ -103,6 +104,16 @@ export class Ng {
     const len = ex.ng_result_len();
     const bytes = new Uint8Array(ex.memory.buffer, ptr, len);
     return JSON.parse(this.td.decode(bytes));
+  }
+
+  renderWav(json: string, sampleRate = 44100, depth: 0 | 1 | 2 = 0): Uint8Array {
+    const { out } = this.call(
+      this.exports.ng_render_wav.bind(this.exports),
+      new TextEncoder().encode(json),
+      sampleRate,
+      depth,
+    );
+    return out;
   }
 }
 

@@ -6,7 +6,7 @@ T1.8 lands in `tools/perf/`, which does not exist yet.
 
 | budget | target | measured | status |
 |---|---|---|---|
-| wasm_size | <= 1 MB (wasm-opt -O3, bank excluded) | 278830 B, `cargo xtask build-wasm`, P0 skeleton, no wasm-opt step | measured 2026-10-06 (prior record 278584 B from 2026-10-05 was stale); recheck after T1.4/T1.7 add render+synth |
+| wasm_size | <= 1 MB (wasm-opt -O3, bank excluded) | 351227 B, `cargo xtask build-wasm`, full render pipeline (T1.3–T1.5) | measured 2026-10-06 (T1.6; prior record 278830 B was P0 skeleton); recheck with wasm-opt -O3 and after T1.7 adds the engine ABI surface |
 | worklet_cost | <= 30% of 2.9 ms block @64 voices | — | P1 |
 | offline_speed | >= 20x realtime | — | P1 |
 | edit_latency | undo/redo <= 50 ms @5000 notes | — | P2 |

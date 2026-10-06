@@ -548,7 +548,11 @@ name = "ng-cli"
 version = "0.0.0"
 dependencies = [
  "ng-core",
+ "ng-export",
+ "ng-render",
  "ng-score",
+ "ng-synth",
+ "ng-timeline",
 ]
 
 [[package]]
@@ -623,7 +627,11 @@ name = "ng-wasm"
 version = "0.0.0"
 dependencies = [
  "ng-core",
+ "ng-export",
+ "ng-render",
  "ng-score",
+ "ng-synth",
+ "ng-timeline",
 ]
 
 [[package]]

@@ -112,6 +112,7 @@ TASK T1.5 "WavEncoder"
   SCOPE { ROOT/crates/ng-export/src/wav/**, ROOT/crates/ng-export/tests/wav* }   READS { ng-core }
   DONE WHEN { ac:R06.AC1 }
 TASK T1.6 "native CLI render and cross-target determinism"
+  STATE DONE
   SCOPE { ROOT/crates/ng-cli/**, ROOT/spec/fixture/golden/** }   READS { all crates }
   DONE WHEN { ng-cli render writes WAV into music_output via FsSink(C12) ; gate:g05 ; gate:g12 ; gate:g15 }
 TASK T1.7 "engine ABI, worklet, minimal AudioEngine"
