@@ -18,6 +18,36 @@ Status:    <promoted to spec / open>
 
 ---
 
+## 2026-10-06 — g03 `unsafe` scan is limited to non-test targets
+
+Affects: gate g03, `scripts/check_deps.py`, `crates/ng-synth/tests/rt_rules.rs`
+
+Decision: in the extern-"C"/unsafe isolation scan, files under `crates/*/tests/` may contain
+`unsafe`. `src/` outside `ng-wasm` is still a failure for both.
+
+Because: g15's R-RT-1 evidence is a counting allocator, and `GlobalAlloc` requires
+`unsafe impl`. Test targets only build for `cargo test` — never into the wasm cdylib, which
+compiles `src/` alone — so widening the production rule would block the gate's own
+evidence. The exemption stays narrow: `extern "C"` is still an error in test files, and no
+`unsafe` in `src/` is excused.
+
+Status: **open** — the rule text in `02_contracts.dsl` (R-RT-2 / R07) should name the test
+target exemption explicitly.
+
+## 2026-10-06 — ng-synth DEPENDS_ON drops ng-bank until P3
+
+Affects: `01_system.dsl`, `module/R04_synth_dsp.dsl`, `crates/ng-synth`
+
+Decision: `ng-synth`'s declared dependency set is `{ ng-core, ng-dsp }` for P1. `ng-bank`
+is re-added to both sources of truth when T3.2 (SoundFontSynth) starts.
+
+Because: an explicit `DEPENDS_ON` list is exact in both directions (see the ALL-is-a-ceiling
+entry below), and g03 fails "declared but unused". `ng-bank` does not exist yet, so the
+exact-match rule was unsatisfiable while T1.3's crate declared it. The Osc half of R04 is
+self-contained — `OscSynth` never touches SF2 types.
+
+Status: **open** — restore `ng-bank` in the same commit that creates `crates/ng-bank`.
+
 ## 2026-10-06 — g01 hotpath lint boundary is crate-wide
 
 Affects: gate g01, `crates/ng-dsp`, `crates/ng-synth`, `crates/ng-render`

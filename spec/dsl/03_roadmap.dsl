@@ -100,6 +100,7 @@ TASK T1.2 "DSP parts"
   SCOPE { ROOT/crates/ng-dsp/** }   READS { ng-core }
   DONE WHEN { Envelope, Ramp, Lcg, SoftLimiter, Reverb(skeleton) unit-tested ; ac:R04.R04 ; libm used for all transcendentals ; denormal test passes }
 TASK T1.3 "OscSynth and synth_contract"
+  STATE DONE
   SCOPE { ROOT/crates/ng-synth/src/osc/**, ROOT/crates/ng-synth/tests/synth_contract.rs }   READS { ng-core, ng-dsp }
   DONE WHEN { ac:R04.AC1 ; ac:R04.AC2 ; gate:g15 }
 TASK T1.4 "Renderer and offline render"

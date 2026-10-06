@@ -1,6 +1,6 @@
 MODULE R04 synth_dsp
   LANG rust ; PHASE P1(Osc, DSP) P3(SoundFont) ; CRATES { ng-dsp, ng-synth }
-  DEPENDS_ON { ng-dsp: { ng-core } ; ng-synth: { ng-core, ng-dsp, ng-bank } } ; DEPENDED_BY { ng-wasm, ng-cli }
+  DEPENDS_ON { ng-dsp: { ng-core } ; ng-synth: { ng-core, ng-dsp } } ; DEPENDED_BY { ng-wasm, ng-cli }
   PURPOSE DSP parts and Synth implementations
   OWNS     { Envelope(DAHDSR), Ramp(5 ms), LinearInterp(v2 cubic), Biquad/OnePole(v2), Reverb(8 combs + 4 allpass, stereo offsets), SoftLimiter, Lcg, OscSynth, SoundFontSynth }
   NOT_OWNS { scheduling/transport(R05), parsing(R03) }

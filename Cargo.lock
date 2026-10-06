@@ -582,6 +582,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ng-synth"
+version = "0.0.0"
+dependencies = [
+ "libm",
+ "ng-core",
+ "ng-dsp",
+]
+
+[[package]]
 name = "ng-timeline"
 version = "0.0.0"
 dependencies = [

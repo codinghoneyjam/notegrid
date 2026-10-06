@@ -1,0 +1,15 @@
+[package]
+name = "ng-synth"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+
+# g01: this crate is in SET HOTPATH, so the deny list applies.
+[lints]
+workspace = true
+
+[dependencies]
+ng-core = { path = "../ng-core" }
+ng-dsp = { path = "../ng-dsp" }
+# R04.DESIGN: libm for sin/exp/pow/log so native and wasm agree bit-for-bit (R-RT-4).
+libm = "0.2"

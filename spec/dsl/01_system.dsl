@@ -53,7 +53,7 @@ CRATE ng-score     DEPENDS_ON { ng-core }                                OWNS Pr
 CRATE ng-timeline  DEPENDS_ON { ng-core, ng-score }                      OWNS TempoMap, compile(project,sr)->Schedule, schedule (de)serialisation
 CRATE ng-dsp       DEPENDS_ON { ng-core }                                OWNS Envelope, Ramp, interpolation, filters, Reverb, SoftLimiter, seeded Lcg
 CRATE ng-bank      DEPENDS_ON { ng-core }                                OWNS SF2/SF3 parser, SoundbankImage build/load, preset lookup
-CRATE ng-synth     DEPENDS_ON { ng-core, ng-dsp, ng-bank }               OWNS OscSynth, SoundFontSynth
+CRATE ng-synth     DEPENDS_ON { ng-core, ng-dsp }                      OWNS OscSynth, SoundFontSynth
 CRATE ng-render    DEPENDS_ON { ng-core, ng-timeline, ng-dsp }           OWNS Renderer<S: Synth>, render_offline, master bus (knows the Synth TRAIT only, never an implementation)
 CRATE ng-export    DEPENDS_ON { ng-core, ng-score }                      OWNS WavEncoder, MidiExporter, MidiImporter
 CRATE ng-wasm      DEPENDS_ON { ALL other crates }                       OWNS C ABI facade + composition (only crate allowed `extern "C"` / `unsafe`)

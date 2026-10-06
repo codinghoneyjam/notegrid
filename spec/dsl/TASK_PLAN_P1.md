@@ -1,6 +1,6 @@
 # TASK_PLAN_P1.md — NoteGrid Phase P1 "Sounding vertical slice"
 
-Status: ACTIVE, T1.1 and T1.2 DONE  | Date: 2026-10-06  | Owner: TBD
+Status: ACTIVE, T1.1–T1.3 DONE  | Date: 2026-10-06  | Owner: TBD
 Source of truth for scope: `03_roadmap.dsl` PHASE P1, `01_system.dsl`, `02_contracts.dsl`, `module/R0{2,4,5,6,7}*.dsl`, `module/T0{3,5}*.dsl`, `00_dsl.dsl`.
 
 ## 0. Executive summary
@@ -45,7 +45,7 @@ target from the module spec until a test actually measures it.
 |---|---|---|---|---|
 | T1.1 TempoMap, compile, schedule bytes | `crates/ng-timeline`, `spec/fixture/golden/schedule` | DONE (2026-10-06) | ac:R02.AC1..AC5 | AC1 124bpm -> 341419 @44100 / 371613 @48000; AC2 tempo-change points vs exact-rational reference (`scripts/gen_tempo_vectors.py` + in-crate integer reference); AC3 property bpm∈[20,400], sr∈{44100,48000}, round trip + strict monotonicity; AC4 slot/mute/solo/order == golden bytes; AC5 truncation/tampering/bitflips rejected, 0 panics. R02.R03 (100k notes ≤ 100 ms) NOT measured — deferred with reason |
 | T1.2 DSP parts | `crates/ng-dsp` | DONE (2026-10-06) | parts unit-tested ; ac:R04.R04 ; libm for all transcendentals ; denormal test passes | Envelope, Ramp (5ms), Lcg, OnePole/Biquad (lowpass/highpass/bandpass/peaking), SoftLimiter, Reverb skeleton, LinearInterp (linear + Catmull-Rom cubic) built, 53 tests green. R04.R04 (flush < -120 dBFS) covered |
-| T1.3 OscSynth + synth_contract | `crates/ng-synth/src/osc`, `crates/ng-synth/tests/synth_contract.rs` | PENDING | ac:R04.AC1 ; ac:R04.AC2 ; gate:g15 | AC1 full synth_contract, R-RT flavoured; AC2 128 programs x 3 keys, non-silent, no NaN |
+| T1.3 OscSynth + synth_contract | `crates/ng-synth/src/osc`, `crates/ng-synth/tests/synth_contract.rs` | DONE (2026-10-06) | ac:R04.AC1 ; ac:R04.AC2 ; gate:g15 | AC1: full R04.R01 synth_contract green on OscSynth; AC2: 128 programs x 3 keys non-silent, no NaN |
 | T1.4 Renderer + render_offline | `crates/ng-render` | PENDING | ac:R05.AC1..AC6 ; R05.R04 | AC1 block sizes {1,7,64,128,4096} identical; AC2 looped file length == E; AC3 `set_schedule` tick within ±1; AC4 queue flood; AC5 click-free mute/solo; AC6 offline cancel. Also R05.R05 parity: ng-render never names OscSynth/SoundFontSynth |
 | T1.5 WavEncoder | `crates/ng-export/src/wav`, `crates/ng-export/tests/wav*` | PENDING | ac:R06.AC1 | 16/24/float read-back within ±1 LSB; smpl/INFO parse |
 | T1.6 CLI render + determinism | `crates/ng-cli`, `spec/fixture/golden` | PENDING | ng-cli render writes WAV into music_output via FsSink(C12) ; g05, g12, g15 | g05 currently covers canonical only; it gains the render path here |
@@ -83,7 +83,7 @@ SoundFont/banks (P3), editor UI / grid / persistence / document package (P2), MI
 
 ## 9. Next step
 
-T1.3 (`ng-synth`): OscSynth and the generic `synth_contract` suite.
+T1.4 (`ng-render`): Renderer FSM, `render_offline`, R05.AC1..AC6, loop counters.
 
 ## 9.1 T1.1 as built (2026-10-06)
 
@@ -108,6 +108,28 @@ DONE. `crates/ng-timeline`, 32 tests green. Notes on what the contract left open
   single-tempo test would not have.
 
 Not done, and deliberately: R02.R03 (100k notes ≤ 100 ms) is not measured — see §9.2.
+
+## 9.3 T1.3 as built (2026-10-06)
+
+DONE. `crates/ng-synth`, 7 tests green (contract 5 + rt_rules 2). Notes:
+
+- **`synth_contract` is one generic function**, `synth_contract<S: Synth>(make)`, holding
+  every R04.R01 item; OscSynth passes. T3.2's SoundFontSynth runs the same function.
+- **g15 evidence**: `tests/rt_rules.rs` counts allocations with a `#[global_allocator]`
+  wrapper over `System` — 0 allocations over 512 render blocks after warm-up — and asserts
+  every release-tail sample is either exactly 0 or a normal float. The two tests in that
+  file serialize on a `static Mutex` because they share one process-wide allocator.
+- **Two gate/spec amendments were needed**, both in DECISIONS.md: g03's `unsafe` scan now
+  exempts `crates/*/tests/` (the counting allocator needs `unsafe impl GlobalAlloc`), and
+  `ng-synth`'s declared deps dropped `ng-bank` until T3.2, because an explicit list is
+  exact both ways and `ng-bank` does not exist yet.
+- **Pan anchors are exact**: centre 64 returns the same constant for L and R, and 0/127
+  return the opposite side as exactly 0 — that is what makes "centre L == R" and
+  "hard-left R ~ 0" assertable with `==`.
+- **Stealing is fully ordered**: oldest release-stage voice, else quietest envelope,
+  ties by slot number. Same input to two instances must therefore steal identically,
+  which is what the bit-identical contract item relies on.
+- **Hat open/closed choke** each other per slot, matching R04.DESIGN.
 
 ## 9.2 T1.2 status: DONE (2026-10-06), g01 hotpath lint in force
 
