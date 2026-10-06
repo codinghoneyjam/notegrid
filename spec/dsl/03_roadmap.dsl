@@ -1,5 +1,10 @@
 # 03_roadmap.dsl — phases, tasks, spikes, risks. Tasks inherit 00_dsl.dsl TASK defaults and GLOBAL_DENY.
-# A TASK lists only SCOPE, extra READS/ALLOW, and DONE WHEN. FLOW = TASK_FLOW unless stated.
+# A TASK lists only SCOPE, extra READS/ALLOW, DONE WHEN, and STATE. FLOW = TASK_FLOW unless stated.
+# STATE is the current node of TASK_FLOW (00_dsl.dsl): ORIENT, TEST_FIRST, IMPLEMENT, VERIFY, DONE,
+# BLOCKED -- or NOT_STARTED for a task nobody has entered. It is the ONLY place task progress lives;
+# scripts/check_task_state.py renders docs/tasks/board.md from it and refuses to let the two drift.
+# Marking a task DONE is a claim about the world, not an intention: the checker verifies the gates
+# its DONE WHEN names actually pass, which is the failure mode this file already had once.
 # EFFORT: S = 1-2 days, M = 3-5 days, L = 1-2 weeks (rough; recalibrate after P0/P1).
 
 ## PHASE FSM
@@ -52,24 +57,31 @@ PHASE P0
   EXIT    { gates active at P0 pass ; spike:SP-1 and spike:SP-2 results recorded in docs/ ; example project yields identical canonical output in Rust and in wasm-in-Node }
 
 TASK T0.1 "workspaces and toolchain"
+  STATE DONE
   SCOPE { ROOT/Cargo.toml, ROOT/rust-toolchain.toml, ROOT/xtask/**, ROOT/package.json, ROOT/pnpm-workspace.yaml, ROOT/.gitignore, ROOT/notegrid.root, ROOT/README.md, ROOT/LICENSE, ROOT/CHANGELOG.md, REPO:tools/.gdignore }
   DONE WHEN { cargo xtask test-all runs on an empty workspace ; tools/.gdignore exists ; .gitignore covers node_modules, target, dist, music_output }
 TASK T0.2 "core types and traits"
+  STATE DONE
   SCOPE { ROOT/crates/ng-core/** }   READS { ROOT/docs/02_contracts.dsl }
   DONE WHEN { traits and types compile exactly as C2 ; ng-core has zero third-party deps (R01.R04) }
 TASK T0.3 "score model, validation, canonical, migrate scaffold"
+  STATE DONE
   SCOPE { ROOT/crates/ng-score/**, ROOT/spec/fixture/validation/**, ROOT/spec/schema/** }   READS { ROOT/crates/ng-core/** }
   DONE WHEN { ac:R01.AC1 ; ac:R01.AC2 ; ac:R01.AC3 ; ac:R01.AC4 ; gate:g09 }
 TASK T0.4 "ABI skeleton and TS loader"
+  STATE DONE
   SCOPE { ROOT/crates/ng-wasm/**, ROOT/packages/abi/** }   READS { ng-core, ng-score }
   DONE WHEN { ng_abi_version, ng_alloc/free, ng_project_validate/migrate/canonical, ng_gm_tables work from Node ; gate:g08 ; ac:R07.AC2(partial: skeleton functions) }
 TASK T0.5 "spikes SP-1 and SP-2"
+  STATE DONE
   SCOPE { ROOT/docs/spikes/**, ROOT/spikes/** (throwaway code) }
   DONE WHEN { both spike reports written with PASS/FALLBACK decision ; C11 support table updated from measurements ; DECIDE amended if a FALLBACK is chosen }
 TASK T0.6 "CI gates and dependency checks"
+  STATE DONE
   SCOPE { ROOT/.github/** or CI config, ROOT/scripts/check_deps*, ROOT/scripts/check_decoupling*, ROOT/.dependency-cruiser.* }
   DONE WHEN { gates g01 g02 g03 g06 g07 g09 g11 g13 run in CI ; ac:X01.AC2(dry run) ; ac:X01.AC5 ; ac:X01.AC6 }
 TASK T0.7 "decoupling scaffold"
+  STATE DONE
   SCOPE { ROOT/scripts/**, ROOT/music_source/.gitkeep, ROOT/music_output/.gitignore, REPO:.gitignore(tools entries only) }
   DONE WHEN { DR-1,2,6,8 checks pass ; repo-wide analysis tools configured to exclude ROOT (DR-7) ; three-engine Playwright matrix skeleton exists }
 
@@ -80,9 +92,11 @@ PHASE P1
   EXIT    { MS-A ; gates g01..g15 active at P1 pass ; budgets measured and fixed (BUDGET.*) ; ac:R05.AC1 ; ac:R05.AC2 ; ac:R05.AC5 }
 
 TASK T1.1 "TempoMap, compile, schedule bytes"
+  STATE DONE
   SCOPE { ROOT/crates/ng-timeline/**, ROOT/spec/fixture/golden/schedule/** }   READS { ng-core, ng-score }
   DONE WHEN { ac:R02.AC1 ; ac:R02.AC2 ; ac:R02.AC3 ; ac:R02.AC4 ; ac:R02.AC5 }
 TASK T1.2 "DSP parts"
+  STATE IMPLEMENT
   SCOPE { ROOT/crates/ng-dsp/** }   READS { ng-core }
   DONE WHEN { Envelope, Ramp, Lcg, SoftLimiter, Reverb(skeleton) unit-tested ; ac:R04.R04 ; libm used for all transcendentals ; denormal test passes }
 TASK T1.3 "OscSynth and synth_contract"

@@ -25,9 +25,11 @@ jobs:
       - run: cargo xtask build-wasm
       - run: python scripts/test_spec_deps.py
       - run: python scripts/test_check_hotpath_lints.py
+      - run: python scripts/test_check_task_state.py
       - run: python scripts/gen_tempo_vectors.py --check
       - run: python scripts/check_hotpath_lints.py
       - run: python scripts/check_deps.py
+      - run: python scripts/check_task_state.py --check
       - run: python scripts/check_decoupling.py
       - run: python scripts/check_determinism.py
   ts:

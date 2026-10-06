@@ -80,6 +80,7 @@ GATE g12_golden_reason ACTIVE_FROM P1  RUN any changed file under spec/fixture/g
 GATE g13_decoupling    ACTIVE_FROM P0  RUN scripts/check_decoupling: DR-1, DR-2, DR-6, DR-8 ; malicious-name/path vectors rejected by every sink
 GATE g14_engine_identical ACTIVE_FROM P1 RUN same project rendered offline on each of ENGINES ; WAV bytes identical (C11.3)
 GATE g15_rt_rules      ACTIVE_FROM P1  RUN counting-allocator test: 0 allocations in render_block after warm-up ; denormal test (R-RT-3)
+GATE g16_task_state    ACTIVE_FROM P0  RUN scripts/check_task_state.py --check : every TASK STATE in 03_roadmap.dsl is a TASK_FLOW state ; a DONE claim is backed by the workspace (its SCOPE units exist, its DONE WHEN is non-empty) ; docs/tasks/board.md matches the spec
 
 ## BUDGET  [MEASURE] — measured in P1, then hard
 BUDGET wasm_size        <= 1 MB (wasm-opt -O3, bank excluded)
