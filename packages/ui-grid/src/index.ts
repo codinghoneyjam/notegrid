@@ -3,3 +3,6 @@
 export * from './types.js';
 export * from './culling.js';
 export * from './render.js';
+export * from './input.js';
+export * from './keymap.js';
+export * from './clipboard.js';
