@@ -104,3 +104,18 @@ lint clause; T1.1–T1.8 recorded `DONE` with no crates). See `docs/tasks/README
 
 Status: **open** — the roadmap's own header documents the vocabulary; the gate is not yet listed
 in `00_dsl.dsl` GATES.
+
+## 2026-10-08 — P1 budget measurement partial, deferred to later phases
+
+Affects: `docs/budgets.md`, `03_roadmap.dsl` T1.8
+
+Decision: P1 measures only wasm_size (384KB < 1MB budget). Other budgets are deferred with documented
+reasons: worklet_cost to P2 (AudioWorklet), offline_speed to P2 (larger test project), edit_latency to P2
+(editor UI), bank_load_cached to P3 (SoundFont), ci_time (CI configuration).
+
+Because: P1 is the "Sounding vertical slice" with minimal UI and no SoundFont. Measuring worklet_cost
+requires AudioWorklet implementation; offline_speed needs a realistic test project; edit_latency needs the
+editor; bank_load_cached needs SoundFont parsing; ci_time needs CI infrastructure. These are
+properly scoped to their respective phases.
+
+Status: **open** — this decision documents a legitimate phase-by-phase measurement strategy; no spec change needed.
