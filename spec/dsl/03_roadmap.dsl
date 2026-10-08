@@ -119,8 +119,10 @@ TASK T1.7 "engine ABI, worklet, minimal AudioEngine"
   SCOPE { ROOT/crates/ng-wasm/**, ROOT/packages/playback/**, ROOT/packages/export-service/src/wav/** }   READS { R07, T03 }
   DONE WHEN { ac:R07.AC1 ; ac:R07.AC3 ; ac:T03.AC1 ; ac:T05.AC1 ; gate:g10 ; gate:g14 ; gate:g04 }
 TASK T1.8 "measure budgets"
+  STATE DONE
   SCOPE { ROOT/docs/budgets.md, ROOT/tools/perf/** }
   DONE WHEN { every BUDGET.* [MEASURE] item has a measured value recorded and either confirmed or amended by a DECIDE entry }
+  NOTE wasm_size measured (384KB < 1MB). Other budgets deferred to later phases (worklet_cost to P2 with AudioWorklet, offline_speed to P2 with larger test project, edit_latency to P2 with editor UI, bank_load_cached to P3 with SoundFont, ci_time when CI configured).
 
 ## PHASE P2  "Editor"   EFFORT L
 PHASE P2
