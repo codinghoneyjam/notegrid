@@ -17,6 +17,18 @@ importers:
         specifier: ^5.6.0
         version: 5.9.3
 
+  packages/export-service:
+    dependencies:
+      '@ng/abi':
+        specifier: workspace:*
+        version: link:../abi
+
+  packages/playback:
+    dependencies:
+      '@ng/abi':
+        specifier: workspace:*
+        version: link:../abi
+
 packages:
 
   '@types/node@24.19.1':

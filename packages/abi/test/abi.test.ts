@@ -11,7 +11,12 @@ test('abi exports match expected set (g08)', async () => {
     'memory', 'ng_abi_version', 'ng_alloc', 'ng_aux_len', 'ng_aux_ptr',
     'ng_error_len', 'ng_error_ptr', 'ng_free', 'ng_gm_tables',
     'ng_project_canonical', 'ng_project_migrate', 'ng_project_validate',
-    'ng_result_len', 'ng_result_ptr',
+    'ng_result_len', 'ng_result_ptr', 'ng_compile',
+    'ng_engine_init', 'ng_engine_set_schedule', 'ng_engine_set_mix',
+    'ng_engine_transport', 'ng_engine_set_loop', 'ng_engine_audition',
+    'ng_engine_render', 'ng_engine_position_sample', 'ng_engine_position_tick',
+    'ng_offline_begin', 'ng_offline_step', 'ng_offline_progress',
+    'ng_offline_cancel', 'ng_offline_finish', 'ng_render_wav',
   ].sort());
 });
 
@@ -53,4 +58,24 @@ test('invalid pointer/length tolerated (no trap)', async () => {
   const report = JSON.parse(new TextDecoder().decode(new Uint8Array(ex.memory.buffer, ex.ng_result_ptr(), ex.ng_result_len())));
   assert.ok(report.errors.length >= 1);
   ex.ng_free(ptr, 16);
+});
+
+test('R07.AC1: Node drives example project -> schedule -> offline WAV', async () => {
+  const ng = await loadNg();
+  const project = readFileSync(new URL('../../../spec/fixture/example_project.json', import.meta.url), 'utf8');
+  
+  // Compile to schedule
+  const scheduleBytes = ng.compile(project, 44100);
+  assert.ok(scheduleBytes.length > 0);
+  
+  // Render to WAV using the existing renderWav (which uses the same path as offline)
+  const wavBytes = ng.renderWav(project, 44100, 0); // 0 = Int16
+  assert.ok(wavBytes.length > 0);
+  
+  // Verify WAV header
+  assert.equal(Buffer.from(wavBytes.slice(0, 4)).toString(), 'RIFF');
+  assert.equal(Buffer.from(wavBytes.slice(8, 12)).toString(), 'WAVE');
+  
+  // T05.AC1: verify byte size matches ng-cli output (2447006 bytes for Int16)
+  assert.equal(wavBytes.length, 2447006);
 });

@@ -632,6 +632,8 @@ dependencies = [
  "ng-score",
  "ng-synth",
  "ng-timeline",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
