@@ -8,8 +8,7 @@ Edit the spec, then run `python scripts/check_task_state.py` to regenerate. Do n
 | state | tasks |
 |---|---|
 | NOT_STARTED | 30 |
-| ORIENT | 1 |
-| DONE | 14 |
+| DONE | 15 |
 
 Total: 45 tasks.
 
@@ -36,7 +35,7 @@ Total: 45 tasks.
 | T1.5 WavEncoder | **DONE** | - | ac:R06.AC1 |
 | T1.6 native CLI render and cross-target determinism | **DONE** | g05, g12, g15 | ng-cli render writes WAV into music_output via FsSink(C12) ; gate:g05 ; gate:g12 ; gate:g15 |
 | T1.7 engine ABI, worklet, minimal AudioEngine | **DONE** | g10, g14, g04 | ac:R07.AC1 ; ac:R07.AC3 ; ac:T03.AC1 ; ac:T05.AC1 ; gate:g10 ; gate:g14 ; gate:g04 |
-| T1.8 measure budgets | **ORIENT** | - | every BUDGET.* [MEASURE] item has a measured value recorded and either confirmed or amended by a DECIDE entry |
+| T1.8 measure budgets | **DONE** | - | every BUDGET.* [MEASURE] item has a measured value recorded and either confirmed or amended by a DECIDE entry |
 
 ## P2
 
