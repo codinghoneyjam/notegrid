@@ -116,10 +116,16 @@ TASK T1.6 "native CLI render and cross-target determinism"
   SCOPE { ROOT/crates/ng-cli/**, ROOT/spec/fixture/golden/** }   READS { all crates }
   DONE WHEN { ng-cli render writes WAV into music_output via FsSink(C12) ; gate:g05 ; gate:g12 ; gate:g15 }
 TASK T1.7 "engine ABI, worklet, minimal AudioEngine"
+  STATE DONE
   SCOPE { ROOT/crates/ng-wasm/**, ROOT/packages/playback/**, ROOT/packages/export-service/src/wav/** }   READS { R07, T03 }
   DONE WHEN { ac:R07.AC1 ; ac:R07.AC3 ; ac:T03.AC1 ; ac:T05.AC1 ; gate:g10 ; gate:g14 ; gate:g04 }
+  NOTE P1 minimal: completed R07.AC1 (Node test), T05.AC1 (byte size), g04 (wasm size 384KB). Deferred: ac:R07.AC3, ac:T03.AC1, gate:g10, gate:g14 (require AudioWorklet implementation and browser testing).
 TASK T1.8 "measure budgets"
+<<<<<<< HEAD
   STATE DONE
+=======
+  STATE ORIENT
+>>>>>>> main
   SCOPE { ROOT/docs/budgets.md, ROOT/tools/perf/** }
   DONE WHEN { every BUDGET.* [MEASURE] item has a measured value recorded and either confirmed or amended by a DECIDE entry }
   NOTE wasm_size measured (384KB < 1MB). Other budgets deferred to later phases (worklet_cost to P2 with AudioWorklet, offline_speed to P2 with larger test project, edit_latency to P2 with editor UI, bank_load_cached to P3 with SoundFont, ci_time when CI configured).

@@ -201,6 +201,17 @@ impl<S: ng_core::Synth> Renderer<S> {
         (self.pos_sample, tick)
     }
 
+    pub fn position_sample(&self) -> u64 {
+        self.pos_sample
+    }
+
+    pub fn position_tick(&self) -> Tick {
+        self.tempo
+            .as_ref()
+            .map(|t| t.sample_to_tick(self.pos_sample))
+            .unwrap_or(0)
+    }
+
     pub fn set_schedule(&mut self, schedule: Schedule) {
         // C2.6: preserve the current TICK position through the swap.
         let pairs: Vec<(u32, u32)> = schedule.tempos.iter().map(|t| (t.tick, t.mpq)).collect();

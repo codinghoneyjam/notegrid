@@ -14,3 +14,5 @@ ng-timeline = { path = "../ng-timeline" }
 ng-synth = { path = "../ng-synth" }
 ng-render = { path = "../ng-render" }
 ng-export = { path = "../ng-export" }
+serde_json = "1"
+serde = "1"
