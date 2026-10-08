@@ -6,7 +6,8 @@ use ng_timeline::Schedule;
 
 use crate::master::MasterBus;
 use crate::mix::LaneMix;
-use crate::renderer::{RenderConfig, Renderer};
+use crate::renderer::Renderer;
+use crate::transport::RenderConfig;
 
 /// Loop handling for offline export (C2.7).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]

@@ -4,9 +4,14 @@
 pub mod master;
 pub mod mix;
 pub mod offline;
+pub mod queue;
 pub mod renderer;
+pub mod slot_mix;
+pub mod transport;
 
 pub use master::MasterBus;
 pub use mix::{effective_gain, LaneMix};
 pub use offline::{render_offline, LoopMode, OfflineOptions, RenderError};
-pub use renderer::{BlockStatus, RenderConfig, Renderer, TransportState};
+pub use queue::{OffEvent, OffQueue, OFF_QUEUE_CAP};
+pub use renderer::{BlockStatus, Renderer, RenderConfig, TransportState};
+pub use slot_mix::{SlotMixState, kind_of, lane_index, lane_mix, unity_ramp};

@@ -3,125 +3,13 @@
 
 use ng_core::{Buses, LaneKind, Slot, Tick, AUDITION_SLOT, MAX_SLOTS};
 use ng_dsp::ramp::Ramp;
-use ng_timeline::{LaneEntry, Schedule, TempoMap};
+use ng_timeline::{Schedule, TempoMap};
 
 use crate::master::MasterBus;
 use crate::mix::{effective_gain, LaneMix};
-
-/// Fixed note-off queue capacity (R05.DESIGN).
-pub const OFF_QUEUE_CAP: usize = 512;
-/// Ramp length for mix gain changes comes from Ramp::new_default (5 ms).
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TransportState {
-    Stopped,
-    Playing,
-    Paused,
-    Ended,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct RenderConfig {
-    pub sample_rate: u32,
-}
-
-impl RenderConfig {
-    pub fn new(sample_rate: u32) -> Self {
-        Self { sample_rate }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct BlockStatus {
-    pub position_sample: u64,
-    pub position_tick: Tick,
-    pub playing: bool,
-    pub ended: bool,
-}
-
-#[derive(Clone, Copy, Debug)]
-struct OffEvent {
-    /// Output-clock position (monotonic, not transport position).
-    at: u64,
-    slot: Slot,
-    key: u8,
-}
-
-/// Fixed-capacity min queue keyed by output clock (R05.DESIGN). Full -> force the earliest
-/// off early, and count it; "dropped_offs" never panics and never waits (AC4).
-#[derive(Clone, Debug, Default)]
-struct OffQueue {
-    events: Vec<OffEvent>,
-    dropped_offs: u64,
-}
-
-impl OffQueue {
-    fn new(capacity: usize) -> Self {
-        Self {
-            events: Vec::with_capacity(capacity),
-            dropped_offs: 0,
-        }
-    }
-
-    /// Returns the forced-early off when the queue was full (R05.DESIGN).
-    fn push(&mut self, ev: OffEvent) -> Option<OffEvent> {
-        let pos = self
-            .events
-            .iter()
-            .position(|e| e.at >= ev.at)
-            .unwrap_or(self.events.len());
-        if self.events.len() >= self.events.capacity() {
-            let forced = self.events.remove(0);
-            self.dropped_offs = self.dropped_offs.saturating_add(1);
-            self.events.insert(pos.min(self.events.len()), ev);
-            return Some(forced);
-        }
-        self.events.insert(pos, ev);
-        None
-    }
-
-    fn front_at(&self) -> Option<u64> {
-        self.events.first().map(|e| e.at)
-    }
-
-    fn clear(&mut self) {
-        self.events.clear();
-    }
-}
-
-/// Per-slot live mix state with a 5 ms ramp on gain changes (R05.DESIGN).
-#[derive(Clone, Debug)]
-struct SlotMixState {
-    mix: LaneMix,
-    applied: f32,
-    ramp: Ramp,
-}
-
-impl SlotMixState {
-    fn new(slot: Slot) -> Self {
-        Self {
-            mix: LaneMix::new(slot),
-            applied: 1.0,
-            ramp: unity_ramp(),
-        }
-    }
-
-    fn is_ramping(&self) -> bool {
-        !self.ramp.is_done()
-    }
-}
-
-/// A one-sample unity ramp; the length is non-zero by construction, so this never errs.
-/// (No unwrap in src: re-try with the next length rather than panicking.)
-fn unity_ramp() -> Ramp {
-    let mut len = 1u32;
-    loop {
-        if let Ok(r) = Ramp::new(1.0, 1.0, len) {
-            return r;
-        }
-        len = len.saturating_add(1);
-    }
-}
+use crate::queue::{OffEvent, OffQueue, OFF_QUEUE_CAP};
+use crate::slot_mix::{SlotMixState, kind_of, lane_index, lane_mix};
+pub use crate::transport::{BlockStatus, RenderConfig, TransportState};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EventCounters {
@@ -557,32 +445,5 @@ impl<S: ng_core::Synth> Renderer<S> {
             *dl = o_l;
             *dr = o_r;
         }
-    }
-}
-
-fn lane_index(slot: u16) -> Option<usize> {
-    let idx = slot as usize;
-    if idx < MAX_SLOTS {
-        Some(idx)
-    } else {
-        None
-    }
-}
-
-fn kind_of(lane: &LaneEntry) -> LaneKind {
-    match lane.kind {
-        1 => LaneKind::Drum,
-        _ => LaneKind::Melodic,
-    }
-}
-
-fn lane_mix(lane: &LaneEntry) -> LaneMix {
-    LaneMix {
-        slot: Slot(lane.slot),
-        gain: f32::from(lane.volume) / 127.0,
-        pan: lane.pan,
-        reverb_send: lane.reverb_send,
-        mute: lane.is_mute(),
-        solo: lane.is_solo(),
     }
 }
