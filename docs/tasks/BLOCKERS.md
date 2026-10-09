@@ -38,8 +38,10 @@ Options:
    auditioning a program is more valuable anyway.
 3. Leave both unimplemented and drop them from T03 SYNC.
 
-Decision: orchestrator, at the start of T2.8 (app composition). The policy side is
-done and tested, so this is pure engine work with a written target.
+Decision: RESOLVED 2026-10-09 by the orchestrator -- Option 1: both entry
+points are implemented as a T1.7 follow-up before T2.8 dispatch (recorded in
+DECISIONS.md, 2026-10-09). The policy side is done and tested, so this is
+pure engine work with a written target.
 
 Unblocks: audible fader moves while playing, and audible note entry in the editor.
 
@@ -70,7 +72,10 @@ Options:
 3. State the unit in the `MSG main->worklet {t:'loop'}` line of `02_contracts.dsl`
    and let the worklet own it. Weakest: it spreads tempo math into TS.
 
-Decision: orchestrator, before T2.8. Option 1 is the one that keeps R02.R02 intact.
+Decision: RESOLVED 2026-10-09 by the orchestrator -- Option 1:
+ng_engine_set_loop_ticks in ng-wasm, converting via the schedule's tempo map
+(recorded in DECISIONS.md, 2026-10-09). Option 1 is the one that keeps
+R02.R02 intact.
 
 Unblocks: a loop range that survives the trip from the document to the renderer.
 
@@ -78,4 +83,7 @@ Unblocks: a loop range that survives the trip from the document to the renderer.
 
 ## (none blocking a task in flight)
 
-Two decisions are pending in `DECISIONS.md`; neither stops work in progress.
+Both T2.6 blockers were resolved on 2026-10-09 (see DECISIONS.md). The engine
+follow-up they required enters through the autonomous pipeline; its scope
+(crates/ng-wasm, crates/ng-render, crates/ng-synth) is disjoint from the
+in-flight T2.8 card (packages/app/**).

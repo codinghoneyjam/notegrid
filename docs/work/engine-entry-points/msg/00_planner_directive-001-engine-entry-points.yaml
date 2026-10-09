@@ -1,0 +1,42 @@
+directive:
+  role: "00_planner_directive"
+  slug: "engine-entry-points"
+  source_request: "T1.7 follow-up decided by the orchestrator on 2026-10-09 (two DECISIONS.md entries and the two resolved T2.6 BLOCKERS.md entries): add ng_engine_set_loop_ticks to the engine ABI, and implement the two E_NOT_IMPLEMENTED entry points ng_engine_set_mix and ng_engine_audition."
+  target_plan: "docs/work/engine-entry-points/plan/engine-entry-points.yaml"
+  goal: "Implement three engine entry points with SCOPE crates/ng-wasm, crates/ng-render, crates/ng-synth: (1) ng_engine_set_loop_ticks(start_tick, end_tick, enabled), converting document ticks to renderer samples via the compiled schedule's tempo map while ng_engine_set_loop stays the sample-domain primitive; (2) ng_engine_set_mix wired to the existing Renderer::set_mix(&[LaneMix]); (3) ng_engine_audition, a synth voice path not driven by the schedule, so note add / pitch change in the editor auditions on the lane's instrument. R02.R02 (tempo math owned by ng-timeline, surfaced through ng_compile) must stay intact."
+  scale_hint:
+    touched_domains: ["core", "synth", "render", "assembly"]
+    estimated_tier: 3
+  questions:
+    blockers:
+      - id: "B1"
+        query: "What is the exact call path from the ng-wasm engine state to the compiled schedule's tempo map: which struct holds the Schedule after ng_engine_set_schedule (a deserialized Schedule via Schedule::from_bytes, or raw schedule bytes), what public method converts a document tick to a sample (TempoMap::tick_to_sample(tick, sr) -> u64, a method on Schedule, or a walk of the C3 tempo table of (tick, mpq, sample) segments), what sample rate the conversion must use (the one given to ng_engine_init), and what argument types the existing ng_engine_set_loop uses so the new ticks variant follows the same C4 convention?"
+        why_blocking: "ng_engine_set_loop_ticks cannot convert ticks to samples without the exact accessor and storage type; a guessed conversion re-implements tempo math inside ng-wasm and violates R02.R02, and if the schedule is stored as opaque bytes the entry point cannot reach the tempo map at all."
+      - id: "B2"
+        query: "What is the exact definition of LaneMix (crate, field names, field types, unit of each field) and what byte encoding reaches ng_engine_set_mix(ptr, len): does the C5 worklet message {t:'mix', bytes} already carry a serialized mix payload, is there an existing deserialize-from-ABI-bytes precedent inside crates/ng-wasm (as ng_engine_set_schedule consumes Schedule bytes) to copy, and does the payload arrive in document units (0..=127 integers per C0.4) or engine units (linear gain / pan factors)?"
+        why_blocking: "Renderer::set_mix(&[LaneMix]) is unreachable through the ABI until the byte payload becomes LaneMix values; inventing a wire format would contradict C2/C4 and break the tested T2.6 policy in packages/playback that already pins the mix boundary."
+      - id: "B3"
+        query: "What is the exact signature and parameter semantics of Renderer::audition_on(kind, program, key, vel) and audition_off(key) (the kind enum's type and variant names, the key and vel ranges), and how does AUDITION_SLOT = Slot(128) keep the audition voice out of the schedule-driven lane slots (MAX_SLOTS = 129)?"
+        why_blocking: "ng_engine_audition(kind, program, key, vel, on) is declared in C4 but returns -6; without the exact Renderer signatures and the audition-slot semantics the voice could collide with lane slots or be driven by the schedule, which defeats the feature (note add / pitch change must sound immediately, not when the playhead arrives)."
+      - id: "B4"
+        query: "How do the existing ng_engine_* functions in crates/ng-wasm reach the shared engine state (a single static or thread-local engine created by ng_engine_init?), how does that state reach the Renderer and through it the Synth, and what error-code enum produces -6 E_NOT_IMPLEMENTED under the C4 convention that every function returns i32 (0 OK, negative error)?"
+        why_blocking: "All three entry points share the engine-state accessor, the Renderer path and the error convention; without the exact pattern the new functions cannot reach the Renderer or the synth, and a mismatched error code breaks the C4 contract and the C4.2 no-trap requirement."
+    references:
+      - id: "R1"
+        query: "Exact public signatures and crate locations of ng-timeline's compile(&Project, sr), TempoMap::{tick_to_sample, sample_to_tick} and Schedule::{to_bytes, from_bytes}, and whether ng-wasm already depends on ng-timeline (Cargo.toml and MODULE.DEPENDS_ON in spec/dsl/01_system.dsl)."
+        target_scope: "crates/ng-timeline, crates/ng-wasm manifest, spec/dsl/01_system.dsl"
+      - id: "R2"
+        query: "Exact signatures of Renderer::{new, set_schedule, set_mix, set_loop, audition_on, audition_off, render_block} and the types they reference."
+        target_scope: "crates/ng-render"
+      - id: "R3"
+        query: "Exact definition of LaneMix (fields, types, units) and of RenderConfig and MasterBus, to determine what set_mix consumes and whether mix values are document integers or engine factors."
+        target_scope: "crates/ng-render, crates/ng-core"
+      - id: "R4"
+        query: "End-to-end implementation of the existing ng_engine_set_loop and ng_engine_set_schedule (argument types, pointer/length handling, error returns, state mutation) as the template for the three new entry points."
+        target_scope: "crates/ng-wasm/src/engine.rs"
+      - id: "R5"
+        query: "The NoteSink trait surface (set_program, note_on, note_off, release_all, silence_all) and the Slot, AUDITION_SLOT and MAX_SLOTS constants that a non-schedule voice path uses."
+        target_scope: "crates/ng-core, crates/ng-synth"
+      - id: "R6"
+        query: "What the TypeScript side already expects: whether @ng/abi declares ng_engine_set_loop_ticks (or a setLoop that carries ticks) and what PlaybackPort.apply and the worklet currently send for the loop, mix and audition operations (C5 messages {t:'loop'}, {t:'mix'}, {t:'audition'}), so the new ABI signatures match the tested T2.6 policy exactly."
+        target_scope: "packages/abi, packages/playback/src/sync"

@@ -18,6 +18,39 @@ Status:    <promoted to spec / open>
 
 ---
 
+## 2026-10-09 -- loop unit conversion is owned by ng-wasm (ng_engine_set_loop_ticks)
+
+Affects:   T2.8, crates/ng-wasm, packages/playback, 02_contracts.dsl
+Decision:  Add ng_engine_set_loop_ticks(start_tick, end_tick, enabled) to the
+           engine ABI. Conversion from document ticks to renderer samples
+           happens inside ng-wasm via the compiled schedule's tempo map.
+           ng_engine_set_loop (samples) stays as the sample-domain primitive.
+Because:   BLOCKERS.md option 1. R02.R02 (tempo math belongs to ng-timeline,
+           surfaced through ng_compile) stays intact and the change is the
+           smallest. Option 2 (export a tick->sample pair from ng_compile)
+           grows the ABI for every consumer; option 3 (worklet owns the unit)
+           spreads tempo math into TS.
+Status:    open -- 02_contracts.dsl MSG main->worklet {t:'loop'} line should
+           state the unit (ticks); packages/playback/test/sync.test.ts already
+           pins the boundary.
+
+## 2026-10-09 -- engine mix and audition entry points are implemented (T1.7 follow-up)
+
+Affects:   T2.8, T1.7 follow-up, crates/ng-wasm, crates/ng-render, crates/ng-synth
+Decision:  Implement both ng_engine_set_mix (ABI wiring to the existing
+           Renderer::set_mix) and ng_engine_audition (a synth voice path that
+           is not driven by the schedule), as a follow-up on T1.7 completed
+           before T2.8 is dispatched.
+Because:   T03 SYNC requires "lane volume/pan/send/mute/solo -> setMix
+           immediately" and "note add / pitch change -> audition on the lane's
+           instrument". The policy side landed and is tested in T2.6, so this
+           is pure engine work with a written target. Cutting audition (option
+           2) would leave P2 composing feedback silent; dropping both (option
+           3) is a requirements regression.
+Status:    open -- not yet a roadmap TASK; enters through the autonomous
+           pipeline. Scope crates/ng-wasm, crates/ng-render, crates/ng-synth
+           is disjoint from the in-flight T2.8 card (packages/app/**).
+
 ## 2026-10-09 — T2.7 scope extended to package scaffolding, the e2e harness, and `.gitignore`
 
 Affects: T2.7, `packages/persistence/**`, `packages/app/**`, `e2e/**`, `.gitignore`

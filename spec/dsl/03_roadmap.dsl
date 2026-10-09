@@ -162,6 +162,7 @@ TASK T2.7 "save/open/autosave/recovery, validation panel"
   SCOPE { ROOT/packages/persistence/**, ROOT/packages/app/src/panels/validation/** }
   DONE WHEN { ac:T04.AC1 ; ac:T04.AC2 ; ac:T04.AC3 ; ac:T04.AC5 ; ac:T04.AC6 }
 TASK T2.8 "app composition, layout, settings, local log"
+  STATE ORIENT
   SCOPE { ROOT/packages/app/** }   READS { all package interfaces }
   DONE WHEN { ac:T06.AC2 ; ac:T06.AC4 ; ac:T06.AC5 ; gate:g10 }
 

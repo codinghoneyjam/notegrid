@@ -1,0 +1,278 @@
+plan:
+  id: "engine-entry-points"
+  status: "PENDING" # PENDING -> ACTIVE upon user approval (HUMAN_PLAN_APPROVAL gate)
+  title: "T1.7 follow-up: engine entry points ng_engine_set_loop_ticks, ng_engine_set_mix, ng_engine_audition"
+  directive_ref: "docs/work/engine-entry-points/msg/00_planner_directive-001-engine-entry-points.yaml"
+  evidence_ref: "docs/work/engine-entry-points/msg/01_scout-001-engine-entry-points_package.yaml"
+  decisions_context:
+    - "docs/tasks/DECISIONS.md 2026-10-09 entry 1: loop unit conversion owned by ng-wasm (ng_engine_set_loop_ticks), BLOCKERS T2.6 option 1"
+    - "docs/tasks/DECISIONS.md 2026-10-09 entry 2: engine mix and audition entry points implemented as a T1.7 follow-up before T2.8 dispatch"
+    - "docs/tasks/BLOCKERS.md: both T2.6 blockers RESOLVED 2026-10-09 by the orchestrator"
+  preconditions:
+    - "ContextPackage.feasibility == 1 (survey line 6)"
+    - "LEN(ActivePlanDirectories('docs/work/')) == 1 <= 3 (only this plan directory exists)"
+  scale: { tier: 1, mode: "Mode C" } # survey correction of the directive's tier-3 hint: LEN(affected_files) = 5 <= 10
+
+  goal: >
+    Implement the three engine entry points in crates/ng-wasm so the T03 SYNC
+    behaviours become audible. (1) ng_engine_set_loop_ticks converts document
+    ticks to renderer samples through the compiled schedule's tempo map, using
+    only the public ng-timeline API (TempoMap::from_mpq_segments +
+    tick_to_sample, the exact pattern renderer.rs:105-106 already uses), so
+    R02.R02 stays intact and no tempo math enters ng-wasm. (2) ng_engine_set_mix
+    decodes a new fixed little-endian 6-byte per-lane record and forwards LaneMix
+    values to the existing Renderer::set_mix. (3) ng_engine_audition calls the
+    existing Renderer::audition_on / audition_off, which route through
+    AUDITION_SLOT = Slot(128) and sound regardless of transport state.
+    ng-render and ng-synth are NOT modified.
+
+  non_goals:
+    - "packages/playback/**: rewiring PlaybackPort.apply to serialize MixRow into the 6-byte record and to call engineSetLoopTicks belongs to the T2.8 port-wiring card; the T2.6 test seam (sync.test.ts:106-111 and the boundary test at 363-386) keeps its current behaviour until then."
+    - "ng-render: no public tempo accessor is added (survey option b); ng-wasm rebuilds the TempoMap from Renderer::schedule() instead (option a)."
+    - "ng-synth: zero change (OscSynth already pre-allocates MAX_SLOTS = 129 lanes and renders active voices regardless of transport state)."
+    - "ng_engine_set_loop (sample domain) stays as the primitive; the new function is the tick-domain twin, not a replacement (DECISIONS.md 2026-10-09 entry 1)."
+    - "No new dependency anywhere (g03): ng-wasm already depends on ng-timeline (Cargo.toml:13) and ng-core (:11); the plan only adds use statements for existing edges."
+
+  architecture:
+    dependency_flow: ["ng-core", "ng-score", "ng-timeline", "ng-dsp", "ng-synth", "ng-render", "ng-wasm"]
+    fences:
+      - "Declared DEPENDS_ON graph of the spec is the ceiling; gate g03 keeps it exact (01_system.dsl:59: ng-wasm DEPENDS_ON { ALL other crates })."
+      - "Scope fence: write units {crates/ng-wasm/src/engine.rs, packages/abi/src/index.ts, packages/abi/test/abi.test.ts, spec/dsl/02_contracts.dsl, docs/tasks/DECISIONS.md} INTERSECT the in-flight T2.8 card (packages/app/**) == EMPTY_SET."
+      - "Contract mutation: the C4 export list gains ng_engine_set_loop_ticks; C2's stale tick_to_sample(tick,sr) signature is corrected; C5 gains the mix wire format, the loop unit, and the audition fields. Applied with a DECISIONS.md entry per the 02_contracts.dsl header rule (Change = new DECIDE + contract test + migration)."
+      - "g08 coupling: packages/abi/test/abi.test.ts:6-21 pins the exact wasm export set, so the Rust export and the TS pinned list must land in ONE change; this plan is therefore a single atomic slice."
+
+  semantics:
+    shared_conventions:
+      - "C4: every function returns i32, 0 = OK, negative = error; error detail JSON {code,message} via set_error (buffers.rs:9-14); a poisoned lock returns a bare negative code with no set_error, matching engine.rs:51,80,114,135."
+      - "State access: ENGINE.lock() -> e.renderer: Option<Renderer<OscSynth>> (engine.rs:8-18); the Synth is private inside Renderer (renderer.rs:26) and is reached only through Renderer methods."
+      - "Hotpath standard: no unwrap / expect / indexing / panic in the new code (the workspace deny lints, workspace Cargo.toml:27-31). ng-wasm sits in SET ASSEMBLY, not SET HOTPATH (00_dsl.dsl:22-23), so it has no [lints] opt-in today, but the existing engine.rs already complies by construction (if-let / match everywhere) and the new code must too."
+    ng_engine_set_loop_ticks:
+      signature: "ng_engine_set_loop_ticks(start_tick: u32, end_tick: u32, enabled: u32) -> i32"
+      types: "Tick = u32 (C0.1); enabled != 0 means set, 0 means clear -- the same convention as ng_engine_set_loop (engine.rs:119-137)."
+      algorithm:
+        - "lock ENGINE (Err -> bare -5)"
+        - "renderer None -> set_error(E_ENGINE, 'engine not initialized'), -2"
+        - "enabled == 0 -> renderer.set_loop(None), 0 (clearing needs no tempo map and must work before any schedule exists)"
+        - "renderer.schedule() None -> set_error(E_ENGINE, 'no schedule loaded'), -3 (REQUIRED: a tick loop-set before any schedule must fail, never silently succeed)"
+        - "collect pairs: Vec<(u32,u32)> = schedule.tempos.iter().map(|t| (t.tick, t.mpq)).collect() -- the owned Vec ends the &Schedule borrow before the &mut set_loop call"
+        - "TempoMap::from_mpq_segments(schedule.sample_rate, &pairs) Err(_) -> set_error(E_ENGINE, 'tempo map build failed'), -4 (fixed message: TempoMapError has no Display impl, tempo_map.rs:9-18; unreachable for a schedule that passed validation, whose tempo table is non-empty and strictly increasing per I-04)"
+        - "s0 = tempo.tick_to_sample(start_tick); s1 = tempo.tick_to_sample(end_tick) (tempo_map.rs:109; the function takes NO sample-rate argument because sr is fixed at construction -- the C2 line 49 text is stale)"
+        - "renderer.set_loop(Some((s0, s1))) (renderer.rs:175), 0"
+      error_table:
+        - { rc: 0, code: "-", condition: "ok; also returned for a degenerate start_tick >= end_tick, which Renderer::set_loop's filter drops (renderer.rs:176) -- twin behaviour of ng_engine_set_loop, pinned by test" }
+        - { rc: -2, code: "E_ENGINE", condition: "engine not initialized (no renderer)" }
+        - { rc: -3, code: "E_ENGINE", condition: "enabled != 0 and no schedule loaded" }
+        - { rc: -4, code: "E_ENGINE", condition: "tempo map build failed (empty or non-monotonic tempo table)" }
+        - { rc: -5, code: "(bare)", condition: "ENGINE lock poisoned" }
+      notes:
+        - "The conversion uses schedule.sample_rate (the rate ng_compile embedded, lib.rs:174), which equals the ng_engine_init rate in practice; using the schedule's own rate keeps the tempo table self-consistent (survey B1)."
+        - "No range validation against schedule length: tick_to_sample extrapolates the final segment, so a loop may extend past the music; the document layer (I-06) validates start < end <= effective length at edit time."
+    ng_engine_set_mix:
+      signature: "ng_engine_set_mix(ptr: u32, len: u32) -> i32"
+      wire_format:
+        layout: "repeated 6-byte packed little-endian record, no padding; record count = len / 6"
+        fields:
+          - { offset: 0, type: "u16", name: "slot", rule: "document lane index = renderer slot (C2.8); must be <= 127 (slot 128 is AUDITION_SLOT and is unreachable by the mix wire)" }
+          - { offset: 2, type: "u8", name: "volume", rule: "0..=127 (C0.4); gain = f32::from(volume) / 127.0, the same conversion lane_mix applies (slot_mix.rs:50-59)" }
+          - { offset: 3, type: "u8", name: "pan", rule: "0..=127 (C0.4), 64 = centre" }
+          - { offset: 4, type: "u8", name: "reverb_send", rule: "0..=127 (C0.4)" }
+          - { offset: 5, type: "u8", name: "flags", rule: "bit0 = mute; bits 1-7 reserved, MUST be zero" }
+        rules:
+          - "len == 0 is E_FORMAT: read_bytes rejects len 0 (buffers.rs:37-42), so an empty payload cannot reach the parser; the port skips the mix op for a zero-lane document (recorded in the DECISIONS.md entry)."
+          - "solo is never on the wire: the port policy folds the global solo rule into muted (mix.ts:20-29) and every record carries solo = false, so Renderer::set_mix recomputes any_solo = false (renderer.rs:142) and the audible result equals the document's solo semantics -- exactly one definition of the solo rule (the tested T2.6 policy)."
+      algorithm:
+        - "read_bytes(ptr, len) None -> set_error(E_FORMAT, 'invalid mix payload'), -2"
+        - "parse + validate every record via the pure helper parse_mix_records(bytes) -> Result<Vec<LaneMix>, MixError> (extracted so the decode logic is unit-testable natively; see tests): MixError::Format(m) -> set_error(E_FORMAT, m), -2; MixError::Range(m) -> set_error(E_RANGE, m), -3. The helper also rejects len % 6 != 0."
+        - "lock ENGINE (Err -> bare -5)"
+        - "renderer None -> set_error(E_ENGINE, 'engine not initialized'), -4"
+        - "renderer.set_mix(&lanes) (renderer.rs:133-147: applies gain ramps, pan and reverb sends, recomputes any_solo), 0"
+      error_table:
+        - { rc: 0, code: "-", condition: "ok (records applied in order; duplicates would simply apply twice, which cannot trap)" }
+        - { rc: -2, code: "E_FORMAT", condition: "ptr/len unreadable, len % 6 != 0, or reserved flag bits set" }
+        - { rc: -3, code: "E_RANGE", condition: "slot >= 128, volume > 127, pan > 127, or reverb_send > 127" }
+        - { rc: -4, code: "E_ENGINE", condition: "engine not initialized" }
+        - { rc: -5, code: "(bare)", condition: "ENGINE lock poisoned" }
+    ng_engine_audition:
+      signature: "ng_engine_audition(kind: u32, program: u32, key: u32, vel: u32, on: u32) -> i32"
+      types: "kind: 0 = melodic, 1 = drum (audition.ts:8-9, mirroring kind_of at slot_mix.rs:43-48); program 0..=127 (C0.6); key 0..=127 (C0.4); vel 1..=127 when on (C0.4 forbids 0); on != 0 = note on, 0 = note off."
+      algorithm:
+        - "validate arguments BEFORE locking (mirrors set_schedule's decode-before-lock):"
+        - "on != 0: kind > 1 -> E_RANGE; program > 127 -> E_RANGE; key > 127 -> E_RANGE; vel == 0 or vel > 127 -> E_RANGE (set_error(E_RANGE, m), -2)"
+        - "on == 0: only key is validated (key > 127 -> E_RANGE, -2); kind / program / vel are ignored -- the port sends vel 0 as its release sentinel (audition.ts:76)"
+        - "lock ENGINE (Err -> bare -4)"
+        - "renderer None -> set_error(E_ENGINE, 'engine not initialized'), -3"
+        - "on != 0: renderer.audition_on(kind, program as u8, key as u8, vel as u8) (renderer.rs:223-227: synth.set_program(AUDITION_SLOT, ...) + synth.note_on(AUDITION_SLOT, ...) + saturating note_ons counter), 0"
+        - "on == 0: renderer.audition_off(key as u8) (renderer.rs:229-232: synth.note_off(AUDITION_SLOT, key) + saturating note_offs counter), 0"
+      error_table:
+        - { rc: 0, code: "-", condition: "ok" }
+        - { rc: -2, code: "E_RANGE", condition: "kind not in {0,1}, program > 127, key > 127, or vel outside 1..=127 when on" }
+        - { rc: -3, code: "E_ENGINE", condition: "engine not initialized" }
+        - { rc: -4, code: "(bare)", condition: "ENGINE lock poisoned" }
+      notes:
+        - "Slot safety: AUDITION_SLOT = Slot(128) with MAX_SLOTS = 129 (ng-core lib.rs:14-15); Schedule::validate enforces note.slot < lane_count (schedule.rs:183) so no scheduled note can ever target slot 128; OscSynth pre-allocates all 129 lanes (osc/mod.rs:354-357)."
+        - "Auditioned notes sound immediately even while the transport is stopped: render_block calls render_segment whenever sub > 0 regardless of state (renderer.rs:305-392), and the synth sums every active voice (osc/mod.rs:548-583) -- exactly the note-add / pitch-change requirement."
+        - "No schedule is required: audition_on / audition_off touch the synth directly, so audition works before ng_engine_set_schedule."
+
+  contract_mutation:
+    rule: "02_contracts.dsl header: a CONTRACT change = new DECIDE + contract test + migration; the implementer applies these edits in the same change together with the DECISIONS.md entry in decisions_required."
+    edits:
+      - { file: "spec/dsl/02_contracts.dsl", line: 49, from: "struct TempoMap ; impl { tick_to_sample(tick,sr)->u64 ; sample_to_tick(sample,sr)->Tick /*floor, for display*/ }", to: "struct TempoMap ; impl { tick_to_sample(tick)->u64 ; sample_to_tick(sample)->Tick /*floor, for display*/ } // sample rate is fixed at construction (tempo_map.rs:47,109)", why: "the implemented signatures take no sr argument; the current line is stale (survey B1)" }
+      - { file: "spec/dsl/02_contracts.dsl", line: 85, from: "EXPORT ng_engine_transport(cmd /*0 play,1 pause,2 stop,3 seek*/, arg_f64) | ng_engine_set_loop(start_f64,end_f64,enabled) | ng_engine_audition(kind,program,key,vel,on)", to: "EXPORT ng_engine_transport(cmd /*0 play,1 pause,2 stop,3 seek*/, arg_f64) | ng_engine_set_loop(start_f64,end_f64,enabled) | ng_engine_set_loop_ticks(start_tick:u32,end_tick:u32,enabled:u32) | ng_engine_audition(kind,program,key,vel,on)", why: "the C4 export list must gain the new export (contract mutation required by the directive and by gate g08)" }
+      - { file: "spec/dsl/02_contracts.dsl", line: 97, from: "MSG main->worklet  {t:'schedule', bytes(transfer)} any time | {t:'mix', bytes} | {t:'transport', cmd, arg} | {t:'loop', start, end, enabled} | {t:'audition', ...}", to: "MSG main->worklet  {t:'schedule', bytes(transfer)} any time | {t:'mix', bytes(6B/lane packed LE: slot u16, volume u8, pan u8, send u8, flags u8 bit0=mute, bits1-7=0)} | {t:'transport', cmd, arg} | {t:'loop', start_tick, end_tick, enabled /*document ticks, C0.1; converted in the engine via ng_engine_set_loop_ticks*/} | {t:'audition', kind, program, key, vel, on}", why: "C5 stated no mix encoding (packages/playback/src/sync/types.ts:57-63) and left the loop unit and audition fields open; the implemented entry points now define them"
+
+  decisions_required:
+    rule: "The implementer appends ONE entry to docs/tasks/DECISIONS.md (format per that file's header, newest first). Required content:"
+    entry:
+      title: "2026-10-09 -- mix wire format and conversion placement (engine-entry-points plan)"
+      affects: "T1.7 follow-up, crates/ng-wasm, packages/abi, 02_contracts.dsl C2/C4/C5"
+      decision: |
+        (a) ng_engine_set_mix payload = fixed little-endian, packed
+            6-byte per-lane record { slot u16, volume u8, pan u8,
+            send u8, flags u8 with bit0 = mute }; bits 1-7 must be
+            zero. len must be a multiple of 6; len == 0 is E_FORMAT
+            (read_bytes rejects it) and the port skips the mix op for
+            a zero-lane document.
+        (b) The document->engine conversion (gain = volume / 127.0)
+            lives in ng-wasm at the ABI boundary, mirroring lane_mix
+            (crates/ng-render/src/slot_mix.rs:50-59); Renderer::set_mix
+            stays engine-unit pure. The alternative (a
+            LaneMix::from_document helper in ng-render) was rejected:
+            it grows ng-render and duplicates the boundary ng-wasm
+            already owns for set_schedule bytes.
+        (c) solo never travels on the wire: the port policy folds the
+            global solo rule into muted (packages/playback/src/sync/
+            mix.ts:20-29) and every record carries solo = false, so
+            Renderer::set_mix recomputes any_solo = false and the
+            audible result equals the document's solo semantics. This
+            keeps exactly one definition of the solo rule (the tested
+            T2.6 policy).
+        (d) ng_engine_set_loop_ticks with enabled != 0 and no schedule
+            returns -3 E_ENGINE (never silently succeeds); clearing
+            (enabled = 0) works without a schedule. A degenerate
+            start >= end is dropped by Renderer::set_loop's filter
+            (renderer.rs:176), twin behaviour of ng_engine_set_loop.
+      because: |
+        (a) C3's lane record is the only in-repo little-endian
+            precedent and its field order matches; a JSON or
+            variable-length payload would cost parsing on the worklet
+            message path for no benefit.
+        (b) ng-wasm already decodes ABI payloads (Schedule::from_bytes
+            precedent, engine.rs:61) and already depends on
+            ng-timeline and ng-render; zero new crate edges (g03).
+        (c) The T2.6 policy is already tested; duplicating solo
+            semantics in the wire would create a second source of
+            truth.
+        (d) Explicit errors beat silent success under the C4
+            convention, and clearing must stay idempotent for
+            recovery paths.
+      status: "open -- C2/C4/C5 lines updated in the same change; the T2.8 port wiring (packages/playback) serializes MixRow into this record and calls engineSetLoopTicks."
+
+  slicing_budget:
+    capacity_formula: "2 * LEN(F_complex) + LEN(F_light) <= 8"
+    file_classification:
+      F_complex:
+        - { file: "crates/ng-wasm/src/engine.rs", why: "3 ABI functions (one new, two replacing -6 stubs) + 1 private parse helper + 1 error enum + the crate's first test module; new validation branching" }
+        - { file: "packages/abi/test/abi.test.ts", why: "pinned export-list edit + new wasm integration tests with render loops (new control flow)" }
+      F_light:
+        - { file: "packages/abi/src/index.ts", why: "one interface member (WasmExports) + one wrapper method (Ng.engineSetLoopTicks)" }
+        - { file: "spec/dsl/02_contracts.dsl", why: "3 single-line edits (C2 signature fix, C4 export, C5 format)" }
+        - { file: "docs/tasks/DECISIONS.md", why: "one appended entry" }
+    budget_check: "2 * 2 + 3 = 7 <= 8 PASS"
+
+  slices:
+    - id: "S1"
+      domain: "crates/ng-wasm + packages/abi + spec/dsl (ONE atomic slice)"
+      atomic_reason: "Gate g08 pins the exact wasm export set (packages/abi/test/abi.test.ts:6-21), so the Rust export and the TS pinned list cannot land separately without leaving a failing gate mid-flight; the contract mutation and the DECISIONS entry document the same change. No 03_task_maker split is warranted for a single atomic slice (M2)."
+      f_read:
+        - "crates/ng-wasm/src/engine.rs"
+        - "crates/ng-wasm/src/buffers.rs"
+        - "crates/ng-wasm/src/lib.rs"
+        - "crates/ng-render/src/renderer.rs"
+        - "crates/ng-render/src/mix.rs"
+        - "crates/ng-render/src/slot_mix.rs"
+        - "crates/ng-timeline/src/tempo_map.rs"
+        - "crates/ng-timeline/src/schedule.rs"
+        - "crates/ng-core/src/lib.rs"
+        - "crates/ng-synth/src/osc/mod.rs"
+        - "packages/abi/src/index.ts"
+        - "packages/abi/test/abi.test.ts"
+        - "packages/playback/src/sync/types.ts"
+        - "packages/playback/src/sync/mix.ts"
+        - "packages/playback/src/sync/audition.ts"
+        - "packages/playback/test/sync.test.ts"
+        - "spec/dsl/02_contracts.dsl"
+      f_modify:
+        - "crates/ng-wasm/src/engine.rs"
+        - "packages/abi/src/index.ts"
+        - "packages/abi/test/abi.test.ts"
+        - "spec/dsl/02_contracts.dsl"
+        - "docs/tasks/DECISIONS.md"
+      operations:
+        - { action: "stub", file: "crates/ng-wasm/src/engine.rs", symbols: ["fn ng_engine_set_loop_ticks(start_tick: u32, end_tick: u32, enabled: u32) -> i32 (full signature first, body returns -6 E_NOT_IMPLEMENTED like its siblings, so the tests compile and fail)"] }
+        - { action: "add", file: "crates/ng-wasm/src/engine.rs", symbols: ["enum MixError { Format(&'static str), Range(&'static str) }", "fn parse_mix_records(bytes: &[u8]) -> Result<Vec<LaneMix>, MixError>", "use ng_core::{LaneKind, Slot}", "use ng_render::LaneMix", "use ng_timeline::TempoMap"] }
+        - { action: "implement", file: "crates/ng-wasm/src/engine.rs", symbols: ["fn ng_engine_set_loop_ticks", "fn ng_engine_set_mix (replaces the -6 stub at engine.rs:85-91)", "fn ng_engine_audition (replaces the -6 stub at engine.rs:140-152)"] }
+        - { action: "add", file: "crates/ng-wasm/src/engine.rs", symbols: ["#[cfg(test)] mod tests (the first test module in ng-wasm)"] }
+        - { action: "modify", file: "packages/abi/src/index.ts", symbols: ["interface WasmExports: ng_engine_set_loop_ticks(start_tick: number, end_tick: number, enabled: number): number (after ng_engine_set_loop, line 33)", "class Ng: engineSetLoopTicks(startTick: number, endTick: number, enabled: boolean): void (after engineSetLoop, lines 177-180; body mirrors engineSetLoop)"] }
+        - { action: "modify", file: "packages/abi/test/abi.test.ts", symbols: ["pinned export list (lines 10-20): add 'ng_engine_set_loop_ticks' (both sides are .sort()ed, so position is free)", "new integration tests (see tests.wav_integration)"] }
+        - { action: "modify", file: "spec/dsl/02_contracts.dsl", symbols: ["C2 line 49 (stale sr arguments)", "C4 EXPORT line 85 (new export)", "C5 MSG line 97 (mix record, loop unit, audition fields)"] }
+        - { action: "add", file: "docs/tasks/DECISIONS.md", symbols: ["entry per decisions_required.entry"] }
+
+  tests:
+    strategy: >
+      Two layers, because ng_alloc returns `ptr as u32` (lib.rs:17-22),
+      which truncates a 64-bit native heap address: no native test may
+      pass a real heap pointer to a ptr/len ABI function. The pure
+      decode logic therefore lives in parse_mix_records and is tested
+      natively with byte slices; every pointer path (set_schedule, the
+      set_mix happy path, render, and with it the full loop_ticks
+      conversion and the audible mix/audition behaviour) is tested in
+      Node against the real wasm module, where pointers are 32-bit and
+      each loadNg() instantiates a fresh ENGINE static. TEST_FIRST
+      (TASK_FLOW): stub signatures first, then the failing tests, then
+      the implementation.
+    rust_unit:
+      file: "crates/ng-wasm/src/engine.rs, #[cfg(test)] mod tests"
+      style: "assert! / assert_eq! only; production code has no unwrap/expect/indexing/panic; Schedule::new's Result is matched, never unwrapped"
+      cases:
+        - "parse_mix_records: valid record [0,0,100,64,0,0] -> Ok(LaneMix { slot: Slot(0), gain: 100.0/127.0, pan: 64, reverb_send: 0, mute: false, solo: false }) (LaneMix derives PartialEq, mix.rs:5)"
+        - "parse_mix_records: mute flag set ([0,0,100,64,0,1]) -> mute == true"
+        - "parse_mix_records: slot 127 accepted; slot 128 (LE [0x80,0x00]) -> Err(MixError::Range)"
+        - "parse_mix_records: volume 128 / pan 128 / send 128 -> Err(MixError::Range)"
+        - "parse_mix_records: len % 6 != 0 (e.g. 7 bytes) -> Err(MixError::Format); flags with any of bits 1-7 set (e.g. 0b100) -> Err(MixError::Format)"
+        - "parse_mix_records: empty slice -> Ok(empty vec)"
+        - "set_loop_ticks state machine (single scripted test fn: the ENGINE static is process-global, so the fresh-state assertions must run before any init inside one fn): (0,7680,1) == -2 before init; after ng_engine_init(44100,0,64): (0,7680,1) == -3 (no schedule) and (0,0,0) == 0 (clear needs no schedule)"
+        - "set_mix pointer-less paths: (0,0) == -2 before and after init (read_bytes rejects ptr 0 and len 0 before any state is touched)"
+        - "audition: fresh engine (0,0,60,100,1) == -3; after init: kind 2 -> -2, program 128 -> -2, key 128 -> -2, vel 0 with on -> -2, vel 128 with on -> -2, key 128 with off -> -2, valid on (0,0,60,100,1) -> 0, valid off (0,0,60,0,0) -> 0"
+    wasm_integration:
+      file: "packages/abi/test/abi.test.ts (Node against the real wasm; every test uses its own loadNg() instance = fresh ENGINE static)"
+      cases:
+        - "g08: the pinned export list gains 'ng_engine_set_loop_ticks' (gate g08 passes only when the wasm export set and this list agree)"
+        - "loop_ticks conversion: ng.compile(example_project, 44100) -> engineSetSchedule -> engineSetLoopTicks(0, 7680, true) must not throw; decode the C3 tempo table from the schedule bytes (header 32 B: magic 4, version u16, flags u16, sample_rate u32, note_count u32 at 12, lane_count u32 at 16, tempo_count u32 at 20, total_samples u64; then lane_count * 8 B of lanes; then 16 B tempo entries: tick u32, mpq u32, sample u64, all LE) and assert the first mpq == 483871 (124 bpm, pinning the fixture); engineTransport(0, 0) (play); render 128-frame blocks via engineRender until ng.enginePositionSample() wraps; assert the wrap point == round_half_up(44100 * 7680 * 483871 / 480_000_000) == 341419 and the position then reads 0 -- the C0.3 example value computed by an independent TS implementation of the C0.3 formula (second-opinion pattern), bounded by a max-iterations budget"
+        - "loop_ticks error path: fresh instance, engineSetLoopTicks(0, 7680, true) throws NgError with code E_ENGINE (rc -3 read through readError)"
+        - "mix end to end: compile + engineSetSchedule the example project; decode lane_count from the C3 header; build one 6-byte record per lane (volume 100, pan 64, send 0, flags 0) with DataView little-endian; engineSetMix(records) -> OK; engineTransport(0, 0); render until a block is non-silent (budgeted); engineSetMix(same records with flags = 1, mute); render 44100 samples; assert the tail is silent (5 ms gain ramp, renderer.rs:149-165) -- muting every lane is what silences the mix, since any_solo is recomputed false and unmuted lanes would keep sounding"
+        - "mix malformed payloads: engineSetMix with a 7-byte payload throws NgError E_FORMAT; a payload whose record has slot 128 throws E_RANGE"
+        - "audition: fresh instance, engineInit, engineAudition(0, 0, 60, 100, true) -> OK; engineRender(zeroed 128-frame buffers) returns a block whose samples are NOT all zero (the audition voice sounds with the transport stopped -- the core T03 SYNC behaviour); engineAudition(0, 0, 60, 0, false) -> OK; render 88200 samples and assert the last 44100 are silent (envelope release; if the release exceeds 1 s the implementer widens the budget -- envelope parameters live in ng-dsp, out of scope)"
+        - "wrapper: Ng.engineSetLoopTicks exists and forwards (startTick, endTick, enabled ? 1 : 0) to the wasm export"
+
+  verifications:
+    tier_1: "cargo test -p ng-wasm ; cargo test --workspace (g02) ; cargo fmt --check ; cargo clippy --workspace --all-targets -- -D warnings (g01) ; python scripts/check_deps.py (g03: no new dependency edges)"
+    tier_0: "pnpm -r check (tsc --noEmit, g06) ; pnpm -r test (g06, incl. the packages/abi g08 export-set test and the new integration tests)"
+    notes:
+      - "python scripts/check_hotpath_lints.py: ng-wasm is in SET ASSEMBLY, not SET HOTPATH (00_dsl.dsl:22-23), so the script does not require a [lints] opt-in from ng-wasm; the new code still follows the deny standard (no unwrap/expect/indexing/panic) to match the existing engine.rs."
+      - "g05 (native == wasm byte-identical) is unaffected: no render-path or transcendental change; the new entry points only mutate engine state outside render_block."
+      - "g04 (wasm size): one additional export and no new dependency; the impact is negligible and is measured by the existing gate if the orchestrator runs cargo xtask build-wasm."
+
+  done_when:
+    - "ng_engine_set_loop_ticks converts document ticks to renderer samples via the compiled schedule's tempo map, and the playhead wraps at the C0.3 example value 341419 for a 0..7680 loop at 124 bpm / 44100 Hz; enabled != 0 with no schedule returns -3 E_ENGINE; clearing works without a schedule."
+    - "ng_engine_set_mix decodes the 6-byte LE record, converts volume / 127.0 to linear gain, and a fully muted mix goes audible -> silent within the 5 ms ramp; every malformed payload returns E_FORMAT or E_RANGE without a trap (C4.2)."
+    - "ng_engine_audition sounds a note on AUDITION_SLOT immediately while the transport is stopped, and off releases it; invalid arguments return E_RANGE."
+    - "Gate g08 passes: set(wasm exports) == set(@ng/abi expected) with ng_engine_set_loop_ticks present in both."
+    - "spec/dsl/02_contracts.dsl carries the C2/C4/C5 edits above and docs/tasks/DECISIONS.md carries the decisions_required entry."
+    - "All listed verifications pass."
+
+  risks:
+    - "TempoMapError has no Display impl (tempo_map.rs:9-18) -- the -4 path uses a fixed message and never formats the error (unlike set_schedule, which may format ScheduleError, schedule.rs:108)."
+    - "Borrow order: renderer.schedule() borrows renderer immutably; collect (sample_rate, pairs) into owned values so the borrow ends before renderer.set_loop, which needs &mut."
+    - "The example-project fixture must be 124 bpm for the wrap test's mpq assertion; if it is not, the assertion fails loudly and the implementer either picks another fixture or builds a minimal project JSON with bpm 124 (the C0.3 example triple is the contract's own example)."
+    - "Native tests must never pass real heap pointers (ng_alloc truncates to u32, lib.rs:17-22); the two-layer test split exists for exactly this reason."
+    - "Downstream seam: packages/playback/test/sync.test.ts:106-111 still forwards document ticks to engineSetLoop, and the T2.6 boundary test (363-386) documents that the port owns the conversion; rewiring it to engineSetLoopTicks is the T2.8 port-wiring card (packages/playback/**), explicitly out of this plan's scope."

@@ -1,0 +1,25 @@
+plan:
+  id: "{slug}"
+  status: "PENDING" # PENDING -> ACTIVE (set upon user approval)
+  title: "{TITLE_IN_ENGLISH}"
+  evidence_ref: "docs/work/{plan_slug}/msg/01_scout-{seq}-{slug}_package.yaml"
+  architecture:
+    dependency_flow: ["ng-core", "ng-dsp", "ng-synth", "ng-render", "ng-wasm"]
+    fences:
+      - "Declared DEPENDS_ON graph of the spec is the ceiling; gate g03 keeps it exact."
+  slicing_budget:
+    capacity_formula: "2 * LEN(F_complex) + LEN(F_light) <= 8"
+    file_classification:
+      F_light: "Single function edit or const/var/schema adjustment (approx 1 function modified)"
+      F_complex: "Multiple function edits (>= 2 functions modified) or logic flow/FSM/branching change"
+  slices:
+    - id: "S1"
+      domain: "{crate_or_package_name}"
+      f_read: ["crates/ng-dsp/src/lib.rs"]
+      f_modify: ["crates/ng-dsp/src/biquad.rs"]
+      operations:
+        - action: "modify"
+          symbols: ["fn process(&mut self, x: f32) -> f32"]
+  verifications:
+    tier_1: "cargo test -p <crate>"
+    tier_0: "V_GATE (.agents/language/toolchain.md)"
