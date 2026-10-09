@@ -20,13 +20,17 @@ pub static ENGINE: Mutex<EngineState> = Mutex::new(EngineState {
 #[no_mangle]
 pub extern "C" fn ng_engine_init(sr: u32, synth_kind: u32, max_voices: u32) -> i32 {
     let sample_rate = if sr == 0 { 44100 } else { sr };
-    let voices = if max_voices == 0 { 64 } else { max_voices as usize };
-    
+    let voices = if max_voices == 0 {
+        64
+    } else {
+        max_voices as usize
+    };
+
     if synth_kind != 0 {
         set_error("E_UNSUPPORTED", "only OscSynth (kind 0) is supported in P1");
         return -6;
     }
-    
+
     let synth = OscSynth::new(sample_rate, voices);
     let master = match MasterBus::new_default(sample_rate) {
         Ok(m) => m,
@@ -36,7 +40,7 @@ pub extern "C" fn ng_engine_init(sr: u32, synth_kind: u32, max_voices: u32) -> i
         }
     };
     let renderer = Renderer::new(synth, master, ng_render::RenderConfig::new(sample_rate));
-    
+
     match ENGINE.lock() {
         Ok(mut e) => {
             e.renderer = Some(renderer);
@@ -62,7 +66,7 @@ pub extern "C" fn ng_engine_set_schedule(ptr: u32, len: u32) -> i32 {
             return -3;
         }
     };
-    
+
     match ENGINE.lock() {
         Ok(mut e) => {
             if let Some(ref mut renderer) = e.renderer {
@@ -79,7 +83,10 @@ pub extern "C" fn ng_engine_set_schedule(ptr: u32, len: u32) -> i32 {
 
 #[no_mangle]
 pub extern "C" fn ng_engine_set_mix(_ptr: u32, _len: u32) -> i32 {
-    set_error("E_NOT_IMPLEMENTED", "ng_engine_set_mix not implemented in P1");
+    set_error(
+        "E_NOT_IMPLEMENTED",
+        "ng_engine_set_mix not implemented in P1",
+    );
     -6
 }
 
@@ -130,8 +137,17 @@ pub extern "C" fn ng_engine_set_loop(start: f64, end: f64, enabled: u32) -> i32 
 }
 
 #[no_mangle]
-pub extern "C" fn ng_engine_audition(_kind: u32, _program: u32, _key: u32, _vel: u32, _on: u32) -> i32 {
-    set_error("E_NOT_IMPLEMENTED", "ng_engine_audition not implemented in P1");
+pub extern "C" fn ng_engine_audition(
+    _kind: u32,
+    _program: u32,
+    _key: u32,
+    _vel: u32,
+    _on: u32,
+) -> i32 {
+    set_error(
+        "E_NOT_IMPLEMENTED",
+        "ng_engine_audition not implemented in P1",
+    );
     -6
 }
 
@@ -139,7 +155,7 @@ pub extern "C" fn ng_engine_audition(_kind: u32, _program: u32, _key: u32, _vel:
 pub extern "C" fn ng_engine_render(l_ptr: u32, r_ptr: u32, frames: u32) -> i32 {
     let l_buf = unsafe { std::slice::from_raw_parts_mut(l_ptr as *mut f32, frames as usize) };
     let r_buf = unsafe { std::slice::from_raw_parts_mut(r_ptr as *mut f32, frames as usize) };
-    
+
     match ENGINE.lock() {
         Ok(mut e) => {
             if let Some(ref mut renderer) = e.renderer {

@@ -8,7 +8,7 @@ use ng_timeline::{Schedule, TempoMap};
 use crate::master::MasterBus;
 use crate::mix::{effective_gain, LaneMix};
 use crate::queue::{OffEvent, OffQueue, OFF_QUEUE_CAP};
-use crate::slot_mix::{SlotMixState, kind_of, lane_index, lane_mix};
+use crate::slot_mix::{kind_of, lane_index, lane_mix, SlotMixState};
 pub use crate::transport::{BlockStatus, RenderConfig, TransportState};
 
 #[derive(Clone, Copy, Debug, Default)]

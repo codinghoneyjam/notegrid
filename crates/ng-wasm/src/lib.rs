@@ -21,6 +21,11 @@ pub extern "C" fn ng_alloc(len: u32) -> u32 {
     ptr as u32
 }
 
+/// Frees a buffer previously returned by [`ng_alloc`].
+///
+/// # Safety
+/// `ptr`/`len` must be the exact pair returned by [`ng_alloc`] for that buffer,
+/// and must not have been freed already. Any other pair is undefined behaviour.
 #[no_mangle]
 pub unsafe extern "C" fn ng_free(ptr: u32, len: u32) {
     if ptr == 0 {
@@ -31,7 +36,10 @@ pub unsafe extern "C" fn ng_free(ptr: u32, len: u32) {
 
 #[no_mangle]
 pub extern "C" fn ng_result_ptr() -> u32 {
-    buffers::RESULT.lock().map(|r| r.as_ptr() as u32).unwrap_or(0)
+    buffers::RESULT
+        .lock()
+        .map(|r| r.as_ptr() as u32)
+        .unwrap_or(0)
 }
 
 #[no_mangle]

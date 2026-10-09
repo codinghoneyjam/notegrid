@@ -1,8 +1,8 @@
 // Offline render ABI exports
 use crate::buffers::{read_bytes, set_error, set_result};
 use ng_export::wav::WavDepth;
-use ng_timeline::Schedule;
 use ng_synth::osc::OscSynth;
+use ng_timeline::Schedule;
 use std::sync::Mutex;
 
 pub struct OfflineState {
@@ -26,24 +26,30 @@ pub static OFFLINE: Mutex<OfflineState> = Mutex::new(OfflineState {
 });
 
 #[no_mangle]
-pub extern "C" fn ng_offline_begin(proj_ptr: u32, proj_len: u32, opts_ptr: u32, opts_len: u32) -> i32 {
+pub extern "C" fn ng_offline_begin(
+    proj_ptr: u32,
+    proj_len: u32,
+    opts_ptr: u32,
+    opts_len: u32,
+) -> i32 {
     let Some(proj_bytes) = read_bytes(proj_ptr, proj_len) else {
         set_error("E_FORMAT", "invalid project pointer");
         return -2;
     };
-    
+
     let sample_rate = if opts_len > 0 {
         let Some(opts_bytes) = read_bytes(opts_ptr, opts_len) else {
             set_error("E_FORMAT", "invalid options pointer");
             return -5;
         };
         let opts_str = std::str::from_utf8(opts_bytes).unwrap_or("{}");
-        let opts: serde_json::Value = serde_json::from_str(opts_str).unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+        let opts: serde_json::Value = serde_json::from_str(opts_str)
+            .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
         opts["sample_rate"].as_u64().unwrap_or(44100) as u32
     } else {
         44100
     };
-    
+
     match OFFLINE.lock() {
         Ok(mut o) => {
             o.schedule = None;
@@ -72,20 +78,18 @@ pub extern "C" fn ng_offline_step(_max_frames: u32) -> i32 {
         }
         Err(_) => return -4,
     };
-    
+
     let depth = WavDepth::Int16;
     match crate::project::render_project(&proj_bytes, sample_rate, depth) {
-        Ok(wav_bytes) => {
-            match OFFLINE.lock() {
-                Ok(mut o) => {
-                    o.pcm = Some(wav_bytes);
-                    o.position = 1;
-                    o.total_frames = 1;
-                    1
-                }
-                Err(_) => -4,
+        Ok(wav_bytes) => match OFFLINE.lock() {
+            Ok(mut o) => {
+                o.pcm = Some(wav_bytes);
+                o.position = 1;
+                o.total_frames = 1;
+                1
             }
-        }
+            Err(_) => -4,
+        },
         Err((code, msg)) => {
             set_error(code, &msg);
             -3

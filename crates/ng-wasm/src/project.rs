@@ -1,7 +1,7 @@
 // Project rendering utilities
 use ng_core::EncodeMeta;
 use ng_export::wav::{WavDepth, WavEncoder, WavOptions};
-use ng_render::{OfflineOptions, render_offline};
+use ng_render::{render_offline, OfflineOptions};
 use ng_score::{migrate, validate};
 use ng_synth::osc::OscSynth;
 use ng_timeline::{compile, TempoMap};
