@@ -18,6 +18,100 @@ Status:    <promoted to spec / open>
 
 ---
 
+## 2026-10-09 — T2.7 scope extended to package scaffolding, the e2e harness, and `.gitignore`
+
+Affects: T2.7, `packages/persistence/**`, `packages/app/**`, `e2e/**`, `.gitignore`
+
+Decision: T2.7 was carried out with SCOPE
+`{ packages/app/{package,tsconfig}.json, packages/persistence/{package,tsconfig}.json,
+e2e/**, .gitignore }` in addition to the roadmap's `packages/persistence/**` and
+`packages/app/src/panels/validation/**`.
+
+Because: the roadmap scope is the source tree, but neither package existed, and a
+package with no `test`/`check` script and no `tsconfig.json` is invisible to
+`pnpm -r test` and `pnpm -r check`. T04.AC6 cannot be met without an e2e harness
+at all: `@playwright/test` was not a dependency anywhere, no browsers were
+installed, and `e2e/` was not even a package -- it was a `playwright.config.ts`
+importing a library no manifest declared. The harness produces
+`e2e/harness/harness.js` and `e2e/test-results/`, which have to be ignored or the
+first run leaves build output in the tree.
+
+This is the same pattern as the T2.6 entry, and it is now the second task in a row
+to need it. That is the signal worth acting on: the roadmap's SCOPE lines describe
+where product code goes, and say nothing about the scaffolding a new package
+needs to be testable at all.
+
+Status: **open** — `03_roadmap.dsl` should state whether a `src/**` slice's SCOPE
+includes its package's `package.json`, `tsconfig.json` and `test/`, so the next
+worker does not re-decide this.
+
+## 2026-10-09 — the open pipeline validates before it migrates
+
+Affects: T2.7, `spec/dsl/module/T04_persistence.dsl` DESIGN, `ProjectStore.openBytes`
+
+Decision: opening a file runs `ng_project_validate` on the bytes as given, and
+only then `ng_project_migrate`, then `ng_project_canonical`. T04 DESIGN writes it
+as "migrate -> validate".
+
+Because: `ng_project_migrate` deserialises into the typed model, so any value the
+type cannot hold is rejected there as "model parse failed: invalid value:
+integer `999`, expected u8" -- with no path, no note index, and nothing the editor
+can highlight. The validator can say `E_RANGE /notes/2/3 pitch 0..=127`, which is
+the difference between an error list and an apology. Migrate still runs and still
+does its job: a file can be schema-valid and still need migrating, and that is
+what `format_version` is for.
+
+A second, smaller reason the written order loses information:
+`validate_structure` returns `None` on the first structural failure, so
+`validate_semantics` never runs and semantic errors (`E_LANE_MISSING`) are hidden
+behind structural ones (`E_RANGE`). A user fixing errors one at a time will meet
+those in waves. That is `ng-score`'s behaviour and T2.7 does not change it; two
+tests in `packages/persistence/test/persistence.test.ts` pin it so it is a known
+shape rather than a surprise.
+
+Status: **open** — T04's DESIGN line should read validate -> migrate -> canonical.
+
+## 2026-10-09 — a reopened project has canonically ordered notes, an edited one may not
+
+Affects: T2.7, `packages/document` `addNote`, `packages/persistence` `decodeProject`
+
+Decision: nothing enforces note order in the document model. `addNote` appends,
+so an in-memory project holds notes in insertion order, while anything that has
+been through `ng_project_canonical` comes back sorted by (start, lane, pitch).
+
+Because: canonical order is a property of the file format (C1), not of the editor,
+and the editor has no reason to pay for it. The consequence is that
+`save -> open` is not identity on array order even though it is identity on
+content. T04.AC1's "deep-equal document" therefore holds for a project that is
+already canonical, which is what the AC1 fixture is, and the reordering is pinned
+by its own test so it is documented behaviour rather than a surprise later.
+
+The alternative -- keeping `notes` sorted on every insert -- would make every
+update in `packages/document` O(n) and buy nothing the format does not already
+give. The real question is whether anything downstream depends on note indices
+being stable across a save, and that is a question for T2.8, when the app composes
+undo, clipboard and hit-test against live documents.
+
+Status: **open** — T2.8 must confirm that note indices are not load bearing across
+a reload.
+
+## 2026-10-09 — the DOM seam uses `setAttribute`, because assigning to `attributes` is a no-op
+
+Affects: T2.7, `packages/app/src/panels/validation/panel.ts`
+
+Decision: the panel's `PanelElement` seam exposes `setAttribute(name, value)`
+rather than an `attributes` record for the renderer to write into.
+
+Because: a real element's `attributes` is a live `NamedNodeMap`;
+`el.attributes['data-code'] = x` compiles, type checks against a structural
+stand-in, and does nothing at runtime. Every `data-*` hook the specs read back was
+silently absent in all three browsers while the Node tests passed. Only running
+the specs on real engines caught it, which is the argument for T04.AC6 being worth
+its cost rather than being signed off from Node.
+
+Status: **promoted** — the type says `setAttribute`, so the mistake is not available
+to the next renderer.
+
 ## 2026-10-09 — T2.6 scope extended to the package scaffolding and `@ng/abi` exports
 
 Affects: T2.6, `.agents/queue/active/T2.6.md`, `packages/playback/**`, `packages/abi/package.json`
