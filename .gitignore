@@ -1,6 +1,9 @@
 target/
 node_modules/
 dist/
+e2e/harness/harness.js
+e2e/test-results/
+e2e/pnpm-lock.yaml
 music_output/*
 !music_output/.gitignore
 music_source/*

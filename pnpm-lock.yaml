@@ -21,6 +21,22 @@ importers:
         specifier: ^5.6.0
         version: 5.9.3
 
+  packages/app:
+    dependencies:
+      '@ng/document':
+        specifier: workspace:*
+        version: link:../document
+      '@ng/persistence':
+        specifier: workspace:*
+        version: link:../persistence
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.19.1
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+
   packages/document:
     devDependencies:
       '@types/node':
@@ -48,6 +64,22 @@ importers:
       '@ng/abi':
         specifier: workspace:*
         version: link:../abi
+
+  packages/persistence:
+    dependencies:
+      '@ng/abi':
+        specifier: workspace:*
+        version: link:../abi
+      '@ng/document':
+        specifier: workspace:*
+        version: link:../document
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.19.1
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
 
   packages/playback:
     dependencies:

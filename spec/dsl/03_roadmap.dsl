@@ -158,7 +158,7 @@ TASK T2.6 "document to schedule sync, audition"
   SCOPE { ROOT/packages/playback/src/sync/** }   READS { editing, playback interfaces }
   DONE WHEN { ac:T03.AC2 ; ac:T03.AC3 ; ac:T03.AC4 }
 TASK T2.7 "save/open/autosave/recovery, validation panel"
-  STATE ORIENT
+  STATE DONE
   SCOPE { ROOT/packages/persistence/**, ROOT/packages/app/src/panels/validation/** }
   DONE WHEN { ac:T04.AC1 ; ac:T04.AC2 ; ac:T04.AC3 ; ac:T04.AC5 ; ac:T04.AC6 }
 TASK T2.8 "app composition, layout, settings, local log"
