@@ -18,6 +18,66 @@ Status:    <promoted to spec / open>
 
 ---
 
+## 2026-10-09 — T2.6 scope extended to the package scaffolding and `@ng/abi` exports
+
+Affects: T2.6, `.agents/queue/active/T2.6.md`, `packages/playback/**`, `packages/abi/package.json`
+
+Decision: T2.6 was carried out with SCOPE
+`{ packages/playback/package.json, packages/playback/tsconfig.json,
+packages/playback/test/**, packages/abi/package.json }` in addition to the
+roadmap's `packages/playback/src/sync/**`, and that deviation is recorded here
+rather than left implicit.
+
+Because: the roadmap scope is the source tree, but a package with no `test`
+script, no `check` script and no `tsconfig.json` cannot be tested or type
+checked, and `pnpm -r test` never reaches it. The precedent is T2.3, which put
+its tests in `packages/ui-grid/test/` although its SCOPE reads
+`ui-grid/src/render/**`. The `@ng/abi` change is smaller still: its `exports`
+pointed at `./src/index.js` while the file is `./src/index.ts`, so *no* other
+package could import it at runtime. That is a defect, not a design choice.
+
+Status: **open** — `03_roadmap.dsl` SCOPE blocks should say whether a package's
+`test/`, `package.json` and `tsconfig.json` are inside a `src/**` slice's scope,
+so the next worker does not have to decide it again.
+
+## 2026-10-09 — the sync policy speaks document units, the port speaks engine units
+
+Affects: T2.6, `packages/playback/src/sync/types.ts`, `spec/dsl/02_contracts.dsl` C2
+
+Decision: `DocumentSync` emits the loop range in document **ticks** and mix rows
+in the **0..=127** document scale (C0.4). `PlaybackPort.apply(op)` is the single
+boundary where those become engine units: samples for `ng_engine_set_loop`,
+gain/pan factors for `ng_engine_set_mix`.
+
+Because: the policy is the only thing that knows the document, and the port is
+the only thing that knows the engine. Putting the conversion anywhere else means
+either a second tempo map in TypeScript (R02.R02 says the conversion lives in
+`ng-timeline` and nowhere else) or a second policy in the worklet. Normal edits
+and watchdog recovery both go through the same `apply`, which is what makes
+T03.R05 an ordering property of one function instead of a rule about call sites.
+
+Status: **open** — the tick -> sample half is blocked on an ABI entry point and is
+recorded in `BLOCKERS.md`.
+
+## 2026-10-09 — a one-tick position bound applies only across a schedule swap
+
+Affects: T2.6, `spec/dsl/module/T03_playback.dsl` T03.AC2
+
+Decision: `DocumentSync.recordPosition` enforces two separate rules. Every
+report must be non-decreasing (the playhead only moves forward). The
+one-tick bound is checked only on the first report after a schedule swap, which
+is the one instant C2.6 says must not move the playhead.
+
+Because: T03.AC2 says "position jump <= 1 tick, position sequence monotonic",
+which reads as one rule but is two. Ordinary playback advances the tick by
+several ticks per 128-frame block at any real tempo -- at 124 bpm and 480 ppq that
+is 3 ticks per block. Applying the one-tick bound everywhere makes the check fire
+on every report and therefore says nothing; applying it nowhere makes the
+"jump" half vacuous. A mutation that leaves the swap window open is caught by
+the AC2 test, which is what makes the split load bearing rather than convenient.
+
+Status: **open** — T03.AC2 should be restated as two clauses.
+
 ## 2026-10-06 — g03 `unsafe` scan is limited to non-test targets
 
 Affects: gate g03, `scripts/check_deps.py`, `crates/ng-synth/tests/rt_rules.rs`

@@ -154,7 +154,7 @@ TASK T2.5 "lane header, program palette, all-programs view"
   SCOPE { ROOT/packages/ui-grid/src/palette/**, ROOT/packages/ui-grid/src/lane/** }   READS { generated GM JSON }
   DONE WHEN { palette lists 16 families / 128 programs ; EnsureProgramLanes creates missing lanes ; ac:T02.AC1(lane-move part) }
 TASK T2.6 "document to schedule sync, audition"
-  STATE ORIENT
+  STATE DONE
   SCOPE { ROOT/packages/playback/src/sync/** }   READS { editing, playback interfaces }
   DONE WHEN { ac:T03.AC2 ; ac:T03.AC3 ; ac:T03.AC4 }
 TASK T2.7 "save/open/autosave/recovery, validation panel"
