@@ -50,6 +50,13 @@ importers:
       '@ng/abi':
         specifier: workspace:*
         version: link:../abi
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.19.1
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
 
   packages/ui-grid:
     dependencies:
