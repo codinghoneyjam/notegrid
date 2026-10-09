@@ -1,0 +1,68 @@
+# Trusted commands reference - NoteGrid
+#
+# Purpose: keep the recurring safe read/verify commands pre-approved so the working flow is
+# not interrupted by approval prompts. Transplanted from the game repository (Kiro
+# "Trusted Commands" style) and remapped to NoteGrid tooling on 2026-10-07. This file is a
+# reference: register the patterns with your agent host as needed.
+#
+# Pattern rules:
+#   - a trailing '*' means "any arguments may follow"
+#   - allow: run without approval
+#   - ask:   confirm once before running (not a block)
+#   - deny:  never run; irreversible or destructive
+
+version: 1
+
+permissions:
+  # -- allow: read-only inspection and verification --------------------------------
+  allow:
+    # read-only git inspection
+    - "git status*"
+    - "git diff*"
+    - "git log*"
+    - "git branch*"
+    - "git show*"
+
+    # gate scripts and spec checks (check_task_state also regenerates the generated board)
+    - "python scripts/check_task_state.py*"
+    - "python scripts/check_deps.py*"
+    - "python scripts/check_hotpath_lints.py*"
+    - "python scripts/check_decoupling.py*"
+    - "python scripts/check_determinism.py*"
+    - "python scripts/test_*.py*"
+
+    # read-only queue queries
+    - "python scripts/agent_queue.py ready*"
+    - "python scripts/agent_queue.py status*"
+
+    # build and workspace inspection
+    - "cargo metadata*"
+    - "cargo xtask build-wasm*"
+    - "cargo xtask test-all*"
+
+  # -- ask: record changes and broad file operations -------------------------------
+  ask:
+    # record changes
+    - "git push*"
+    - "git commit*"
+    - "git rebase*"
+
+    # task state movement (writes STATE lines via scripts/agent_queue.py)
+    - "python scripts/agent_queue.py claim*"
+    - "python scripts/agent_queue.py release*"
+    - "python scripts/agent_queue.py complete*"
+    - "python scripts/agent_queue.py block*"
+
+    # broad file removal / moves
+    - "Remove-Item -Recurse*"
+    - "Remove-Item -Force*"
+    - "rm -rf*"
+    - "rm -r*"
+    - "Move-Item*"
+    - "mv *"
+
+  # -- deny: irreversible or destructive -------------------------------------------
+  deny:
+    - "git reset --hard*"
+    - "git clean -f*"
+    - "git push --force*"

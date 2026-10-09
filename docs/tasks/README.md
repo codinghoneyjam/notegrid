@@ -18,6 +18,11 @@ writing it out on all 45 tasks would be noise nobody keeps current.
 | `BLOCKERS.md` | what is stopped and why, with the decision needed | hand-written, on the task that is blocked |
 | `DECISIONS.md` | decisions taken that the spec does not yet record | hand-written, then folded into the spec |
 
+The multi-agent dispatch layer sits on top of this folder, not beside it:
+`.agents/queue/` holds the task cards (one per in-flight task, one git
+worktree each), and `scripts/agent_queue.py` moves STATE lines in the
+spec as cards are claimed, completed, and blocked. See `.agents/dispatch_readme.md`.
+
 ## The check
 
 ```
@@ -49,3 +54,4 @@ workspace and gets checked against it.
 - Gates: `00_dsl.dsl` GATES, each with its own script under `scripts/`
 - Budgets: `docs/budgets.md`, measured in T1.8
 - Golden-file changes: `docs/golden_changes.md`, required by gate g12
+- Agent dispatch: `.agents/dispatch_readme.md`, `scripts/agent_queue.py`

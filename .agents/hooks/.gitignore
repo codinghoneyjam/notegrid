@@ -1,0 +1,5 @@
+# Runtime artifacts of the read-gate hooks; never tracked.
+.read_cache.json
+.contract_cache.json
+__pycache__/
+*.pyc

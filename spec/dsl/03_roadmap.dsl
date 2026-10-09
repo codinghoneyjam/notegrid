@@ -121,11 +121,7 @@ TASK T1.7 "engine ABI, worklet, minimal AudioEngine"
   DONE WHEN { ac:R07.AC1 ; ac:R07.AC3 ; ac:T03.AC1 ; ac:T05.AC1 ; gate:g10 ; gate:g14 ; gate:g04 }
   NOTE P1 minimal: completed R07.AC1 (Node test), T05.AC1 (byte size), g04 (wasm size 384KB). Deferred: ac:R07.AC3, ac:T03.AC1, gate:g10, gate:g14 (require AudioWorklet implementation and browser testing).
 TASK T1.8 "measure budgets"
-<<<<<<< HEAD
   STATE DONE
-=======
-  STATE ORIENT
->>>>>>> main
   SCOPE { ROOT/docs/budgets.md, ROOT/tools/perf/** }
   DONE WHEN { every BUDGET.* [MEASURE] item has a measured value recorded and either confirmed or amended by a DECIDE entry }
   NOTE wasm_size measured (384KB < 1MB). Other budgets deferred to later phases (worklet_cost to P2 with AudioWorklet, offline_speed to P2 with larger test project, edit_latency to P2 with editor UI, bank_load_cached to P3 with SoundFont, ci_time when CI configured).
@@ -138,21 +134,27 @@ PHASE P2
   NOTE    timbres in this phase come from OscSynth (audible feedback only) ; real GM timbres arrive in P3
 
 TASK T2.1 "document model and queries"
+  STATE DONE
   SCOPE { ROOT/packages/document/** }   READS { abi types }
   DONE WHEN { queries and structural-sharing updates unit-tested ; load/save conversion to tuples round-trips }
 TASK T2.2 "commands, history, overlap policy"
+  STATE DONE
   SCOPE { ROOT/packages/editing/** }   READS { document }
   DONE WHEN { ac:T01.AC1 ; ac:T01.AC2 ; ac:T01.AC3 ; ac:T01.AC4 ; ac:T01.AC5 }
 TASK T2.3 "grid rendering (Compact, Roll, Drum), ruler, playhead"
+  STATE DONE
   SCOPE { ROOT/packages/ui-grid/src/render/** }   READS { document(readonly) }
   DONE WHEN { culling and hit-test tests ; ac:T02.AC3 ; fps budget on the browser harness }
 TASK T2.4 "input to Intent, keymap, clipboard"
+  STATE DONE
   SCOPE { ROOT/packages/ui-grid/src/input/**, ROOT/packages/editing/src/clipboard/** }   READS { editing(types of Intent only) }
   DONE WHEN { ac:T02.AC2 ; ac:T02.AC4 ; ac:T02.AC5 }
 TASK T2.5 "lane header, program palette, all-programs view"
+  STATE DONE
   SCOPE { ROOT/packages/ui-grid/src/palette/**, ROOT/packages/ui-grid/src/lane/** }   READS { generated GM JSON }
   DONE WHEN { palette lists 16 families / 128 programs ; EnsureProgramLanes creates missing lanes ; ac:T02.AC1(lane-move part) }
 TASK T2.6 "document to schedule sync, audition"
+  STATE ORIENT
   SCOPE { ROOT/packages/playback/src/sync/** }   READS { editing, playback interfaces }
   DONE WHEN { ac:T03.AC2 ; ac:T03.AC3 ; ac:T03.AC4 }
 TASK T2.7 "save/open/autosave/recovery, validation panel"

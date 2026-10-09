@@ -30,6 +30,7 @@ jobs:
       - run: python scripts/check_hotpath_lints.py
       - run: python scripts/check_deps.py
       - run: python scripts/check_task_state.py --check
+      - run: python scripts/agent_queue.py status
       - run: python scripts/check_decoupling.py
       - run: python scripts/check_determinism.py
   ts:

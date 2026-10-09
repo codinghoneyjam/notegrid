@@ -1,0 +1,29 @@
+{
+  "mandatory-read-enforcer": {
+    "enabled": true,
+    "PreToolUse": [
+      {
+        "matcher": "write_to_file|replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/read_gate.py pre",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "view_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python hooks/read_gate.py post",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

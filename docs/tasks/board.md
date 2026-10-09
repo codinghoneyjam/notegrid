@@ -7,8 +7,9 @@ Edit the spec, then run `python scripts/check_task_state.py` to regenerate. Do n
 
 | state | tasks |
 |---|---|
-| NOT_STARTED | 30 |
-| DONE | 15 |
+| NOT_STARTED | 24 |
+| ORIENT | 1 |
+| DONE | 20 |
 
 Total: 45 tasks.
 
@@ -41,12 +42,12 @@ Total: 45 tasks.
 
 | task | state | gates | done when |
 |---|---|---|---|
-| T2.1 document model and queries | **NOT_STARTED** | - | queries and structural-sharing updates unit-tested ; load/save conversion to tuples round-trips |
-| T2.2 commands, history, overlap policy | **NOT_STARTED** | - | ac:T01.AC1 ; ac:T01.AC2 ; ac:T01.AC3 ; ac:T01.AC4 ; ac:T01.AC5 |
-| T2.3 grid rendering (Compact, Roll, Drum), ruler, playhead | **NOT_STARTED** | - | culling and hit-test tests ; ac:T02.AC3 ; fps budget on the browser harness |
-| T2.4 input to Intent, keymap, clipboard | **NOT_STARTED** | - | ac:T02.AC2 ; ac:T02.AC4 ; ac:T02.AC5 |
-| T2.5 lane header, program palette, all-programs view | **NOT_STARTED** | - | palette lists 16 families / 128 programs ; EnsureProgramLanes creates missing lanes ; ac:T02.AC1(lane-move part) |
-| T2.6 document to schedule sync, audition | **NOT_STARTED** | - | ac:T03.AC2 ; ac:T03.AC3 ; ac:T03.AC4 |
+| T2.1 document model and queries | **DONE** | - | queries and structural-sharing updates unit-tested ; load/save conversion to tuples round-trips |
+| T2.2 commands, history, overlap policy | **DONE** | - | ac:T01.AC1 ; ac:T01.AC2 ; ac:T01.AC3 ; ac:T01.AC4 ; ac:T01.AC5 |
+| T2.3 grid rendering (Compact, Roll, Drum), ruler, playhead | **DONE** | - | culling and hit-test tests ; ac:T02.AC3 ; fps budget on the browser harness |
+| T2.4 input to Intent, keymap, clipboard | **DONE** | - | ac:T02.AC2 ; ac:T02.AC4 ; ac:T02.AC5 |
+| T2.5 lane header, program palette, all-programs view | **DONE** | - | palette lists 16 families / 128 programs ; EnsureProgramLanes creates missing lanes ; ac:T02.AC1(lane-move part) |
+| T2.6 document to schedule sync, audition | **ORIENT** | - | ac:T03.AC2 ; ac:T03.AC3 ; ac:T03.AC4 |
 | T2.7 save/open/autosave/recovery, validation panel | **NOT_STARTED** | - | ac:T04.AC1 ; ac:T04.AC2 ; ac:T04.AC3 ; ac:T04.AC5 ; ac:T04.AC6 |
 | T2.8 app composition, layout, settings, local log | **NOT_STARTED** | g10 | ac:T06.AC2 ; ac:T06.AC4 ; ac:T06.AC5 ; gate:g10 |
 

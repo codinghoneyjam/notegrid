@@ -111,6 +111,23 @@ class StateValidityTest(unittest.TestCase):
         errors = self.check_one(state="DONE", scope="ROOT/crates/ng-timeline/**")
         self.assertEqual(errors, [])
 
+    def test_done_with_missing_package_is_rejected(self) -> None:
+        # T1.7's case: `packages/playback` extracts to the bare unit
+        # `playback`, which the name-prefix rule does not catch. The path
+        # it was written with must still be checked.
+        errors = self.check_one(state="DONE", scope="ROOT/packages/playback/**")
+        self.assertTrue(any("not in the workspace" in e for e in errors), errors)
+
+    def test_done_with_existing_package_passes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "03_roadmap.dsl"
+            path.write_text(
+                roadmap(task("T1.7", state="DONE", scope="ROOT/packages/abi/**")),
+                encoding="utf-8",
+            )
+            tasks = target.parse_tasks(path)
+        self.assertEqual(target.check(tasks, {"abi"}, VALID), [])
+
     def test_no_state_is_not_an_error(self) -> None:
         errors = self.check_one(scope="ROOT/crates/ng-timeline/**")
         self.assertEqual(errors, [])

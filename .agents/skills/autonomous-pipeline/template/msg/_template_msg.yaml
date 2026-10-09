@@ -1,0 +1,9 @@
+message:
+  from: "{ROLE_NAME}" # e.g. 01_scout, 04_implementer
+  to: "{TARGET_ROLE}"  # e.g. Orchestrator, 02_planner_plan
+  status: "OK"         # OK | BLOCKED | FAILED
+  plan_ref: "docs/work/{plan_slug}/plan/{plan_name}.yaml"
+  summary: "{Brief summary in English ASCII}"
+  details:
+    blocked_reason: null
+    suggested_action: null

@@ -138,10 +138,59 @@ def workspace_members() -> set[str]:
     return members
 
 
+def scope_paths(scope: str) -> list[str]:
+    """The path of each SCOPE entry, e.g. 'crates/ng-synth/src/osc'.
+
+    Entries are comma-separated and anchored at ROOT/ or REPO:. Trailing
+    globs (`/**`, `/*`) and trailing annotations are dropped.
+    """
+    out = []
+    for entry in scope.split(","):
+        entry = entry.strip()
+        m = re.match(r"^(?:ROOT|REPO):?(.*)$", entry)
+        if not m:
+            continue
+        path = m.group(1).strip().lstrip("/")
+        path = re.sub(r"/\*.*$", "", path)
+        if path:
+            out.append(path)
+    return out
+
+
 def scope_units(scope: str) -> list[str]:
-    """Unit names referenced by a SCOPE block: crates/ng-x, packages/y, docs/..., etc."""
-    found = re.findall(r"(?:ROOT|REPO):?(?:[\w./*-]+/)*?([\w-]+)(?:/\*\*)?", scope)
-    return [f for f in found if f and f not in ("ROOT", "REPO")]
+    """Every path segment of every SCOPE entry, oldest first.
+
+    `crates/ng-synth/src/osc/**` yields `ng-synth`, `src` and `osc`,
+    so a conflict check sees the package a file lives in, not just
+    the deepest directory.
+    """
+    units: list[str] = []
+    for path in scope_paths(scope):
+        for segment in path.split("/"):
+            if segment and segment not in units:
+                units.append(segment)
+    return units
+
+
+def scope_targets(scope: str) -> list[tuple[str | None, str]]:
+    """(kind, name) per SCOPE entry: 'crate' or 'package' when the
+    entry sits under crates/ or packages/.
+
+    A DONE claim naming a not-yet-created crate or package must be
+    checked through the path it was written with: `packages/playback`
+    extracts to the bare unit `playback`, which no name-prefix rule
+    can recognise.
+    """
+    out = []
+    for path in scope_paths(scope):
+        segments = path.split("/")
+        if len(segments) >= 2 and segments[0] == "crates":
+            out.append(("crate", segments[1]))
+        elif len(segments) >= 2 and segments[0] == "packages":
+            out.append(("package", segments[1]))
+        else:
+            out.append((None, segments[0]))
+    return out
 
 
 def check(tasks: list[dict], members: set[str], valid_states: set[str]) -> list[str]:
@@ -165,13 +214,22 @@ def check(tasks: list[dict], members: set[str], valid_states: set[str]) -> list[
             continue
 
         if task["state"] == "DONE":
-            # The falsifiable part. A DONE task whose SCOPE names a crate that does not exist is
-            # exactly the T1.1..T1.8 failure this script was written to prevent.
+            # The falsifiable part. A DONE task whose SCOPE names a crate or
+            # package that does not exist is exactly the T1.1..T1.8 failure
+            # this script was written to prevent.
+            flagged: set[str] = set()
             for unit in scope_units(task["scope"]):
                 if unit.startswith(("ng-", "abi", "packages/")) and unit not in members:
+                    flagged.add(unit)
                     errors.append(
                         f"{tid}: STATE DONE but its SCOPE names '{unit}', which is not in the "
                         f"workspace (a DONE claim must be backed by code)"
+                    )
+            for kind, unit in scope_targets(task["scope"]):
+                if kind and unit not in members and unit not in flagged:
+                    errors.append(
+                        f"{tid}: STATE DONE but its SCOPE names {kind} '{unit}', which is not "
+                        f"in the workspace (a DONE claim must be backed by code)"
                     )
             if not task["done_when"]:
                 errors.append(f"{tid}: STATE DONE but DONE WHEN is empty, so nothing was verified")

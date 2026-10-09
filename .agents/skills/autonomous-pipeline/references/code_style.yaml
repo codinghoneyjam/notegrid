@@ -1,0 +1,35 @@
+code_style:
+  version: "3.0"
+  language_scope: ["rust", "typescript", "python"]
+
+  rust:
+    typing:
+      mandatory: "full type annotations; rustc type-checks by construction"
+      rule: "Result-based error handling; no unwrap/expect/indexing_slicing/panic in HOTPATH crates (gate g01)"
+    line_limits:
+      ref: ".agents/language/code_metrics.md"
+    meta_comments:
+      ref: ".agents/language/code_metrics.md"
+    hotpath_rules:
+      ref: "spec/dsl/02_contracts.dsl"  # R-RT-1..4
+    naming_conventions:
+      crates: "crates/ng-* lowercase"
+      types: "PascalCase"
+      functions_and_variables: "snake_case"
+      constants: "UPPER_SNAKE_CASE"
+
+  typescript:
+    modules: "pure ES modules; no CommonJS require(); do not add re-export shims for deleted modules"
+    typing: "strict compiler options; pnpm -r check (tsc --noEmit) is the proof"
+    naming: "camelCase for variables/functions, UPPER_SNAKE_CASE for constants, PascalCase for types/classes"
+    tests: "vitest where present; the package's own test command is the evidence"
+
+  python:
+    typing: "mandatory type hints on functions and parameters"
+    meta_comments: "follow the file-header convention in .agents/language/code_metrics.md"
+    paths: "use pathlib; centralise repository paths in scripts/paths.py (existing pattern)"
+    tools: "tooling scripts follow the gates in .agents/language/toolchain.md"
+
+  shared:
+    ascii_rule: "agent-facing text (code comments, docs, commits) is 100% ASCII English (.agents/language/core.md)"
+    evidence_rule: "no task closes without a command and its real output (.agents/rules/basic.md)"
