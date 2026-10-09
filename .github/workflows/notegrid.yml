@@ -37,10 +37,41 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .
       - uses: pnpm/action-setup@v4
         with: { version: 12 }
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: pnpm, cache-dependency-path: pnpm-lock.yaml }
       - run: pnpm install --frozen-lockfile
+      # packages/abi tests load dist/ng-wasm.wasm, and dist/ is gitignored, so the
+      # artifact has to be built here or every test that touches the ABI fails on a
+      # fresh checkout.
+      - run: cargo xtask build-wasm
       - run: pnpm -r check
       - run: pnpm -r test
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .
+      - uses: pnpm/action-setup@v4
+        with: { version: 12 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: pnpm install --frozen-lockfile
+      - run: cargo xtask build-wasm
+      # e2e installs its own tree so a browser-downloading tool stays out of the
+      # workspace install.
+      - run: pnpm install --frozen-lockfile --dir e2e
+      - run: pnpm exec --dir e2e playwright install --with-deps chromium firefox webkit
+      - run: pnpm exec --dir e2e playwright test
