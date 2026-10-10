@@ -1,6 +1,6 @@
 plan:
   id: "engine-entry-points"
-  status: "PENDING" # PENDING -> ACTIVE upon user approval (HUMAN_PLAN_APPROVAL gate)
+  status: "DONE" # PENDING -> ACTIVE upon user approval (HUMAN_PLAN_APPROVAL gate) -> DONE (S_DONE)
   title: "T1.7 follow-up: engine entry points ng_engine_set_loop_ticks, ng_engine_set_mix, ng_engine_audition"
   directive_ref: "docs/work/engine-entry-points/msg/00_planner_directive-001-engine-entry-points.yaml"
   evidence_ref: "docs/work/engine-entry-points/msg/01_scout-001-engine-entry-points_package.yaml"

@@ -18,6 +18,49 @@ Status:    <promoted to spec / open>
 
 ---
 
+## 2026-10-09 -- mix wire format and conversion placement (engine-entry-points plan)
+
+Affects:   T1.7 follow-up, crates/ng-wasm, packages/abi, 02_contracts.dsl C2/C4/C5
+Decision:  (a) ng_engine_set_mix payload = fixed little-endian, packed
+            6-byte per-lane record { slot u16, volume u8, pan u8,
+            send u8, flags u8 with bit0 = mute }; bits 1-7 must be
+            zero. len must be a multiple of 6; len == 0 is E_FORMAT
+            (read_bytes rejects it) and the port skips the mix op for
+            a zero-lane document.
+            (b) The document->engine conversion (gain = volume / 127.0)
+            lives in ng-wasm at the ABI boundary, mirroring lane_mix
+            (crates/ng-render/src/slot_mix.rs:50-59); Renderer::set_mix
+            stays engine-unit pure. The alternative (a
+            LaneMix::from_document helper in ng-render) was rejected:
+            it grows ng-render and duplicates the boundary ng-wasm
+            already owns for set_schedule bytes.
+            (c) solo never travels on the wire: the port policy folds the
+            global solo rule into muted (packages/playback/src/sync/
+            mix.ts:20-29) and every record carries solo = false, so
+            Renderer::set_mix recomputes any_solo = false and the
+            audible result equals the document's solo semantics. This
+            keeps exactly one definition of the solo rule (the tested
+            T2.6 policy).
+            (d) ng_engine_set_loop_ticks with enabled != 0 and no schedule
+            returns -3 E_ENGINE (never silently succeeds); clearing
+            (enabled = 0) works without a schedule. A degenerate
+            start >= end is dropped by Renderer::set_loop's filter
+            (renderer.rs:176), twin behaviour of ng_engine_set_loop.
+Because:   (a) C3's lane record is the only in-repo little-endian
+            precedent and its field order matches; a JSON or
+            variable-length payload would cost parsing on the worklet
+            message path for no benefit.
+            (b) ng-wasm already decodes ABI payloads (Schedule::from_bytes
+            precedent, engine.rs:61) and already depends on
+            ng-timeline and ng-render; zero new crate edges (g03).
+            (c) The T2.6 policy is already tested; duplicating solo
+            semantics in the wire would create a second source of
+            truth.
+            (d) Explicit errors beat silent success under the C4
+            convention, and clearing must stay idempotent for
+            recovery paths.
+Status:    open -- C2/C4/C5 lines updated in the same change; the T2.8 port wiring (packages/playback) serializes MixRow into this record and calls engineSetLoopTicks.
+
 ## 2026-10-09 -- loop unit conversion is owned by ng-wasm (ng_engine_set_loop_ticks)
 
 Affects:   T2.8, crates/ng-wasm, packages/playback, 02_contracts.dsl

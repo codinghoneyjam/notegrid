@@ -46,7 +46,7 @@ API
   trait ScoreImporter { import(&[u8])->Result<ImportOutput /*Project+warnings*/,ImportError> }
   fn validate(&Project)->Report ; fn migrate(&[u8])->Result<Project,ScoreError> ; fn to_canonical_json(&Project)->String
   // ng-timeline
-  struct TempoMap ; impl { tick_to_sample(tick,sr)->u64 ; sample_to_tick(sample,sr)->Tick /*floor, for display*/ }
+  struct TempoMap ; impl { tick_to_sample(tick)->u64 ; sample_to_tick(sample)->Tick /*floor, for display*/ } // sample rate is fixed at construction (tempo_map.rs:47,109)
   fn compile(&Project, sr)->Result<Schedule,CompileError>        // rejects projects with validation errors
   impl Schedule { to_bytes()->Vec<u8> ; from_bytes(&[u8])->Result<Self,ScheduleError> }
   // ng-render
@@ -82,7 +82,7 @@ EXPORT ng_project_validate(ptr,len)->RESULT=Report JSON | ng_project_migrate(ptr
 EXPORT ng_compile(ptr,len,sr)->RESULT=Schedule bytes | ng_gm_tables()->RESULT=names/families/drum keys JSON
 EXPORT ng_bank_parse(ptr,len)->RESULT=SoundbankImage | ng_bank_load_image(ptr,len) [stopped state only else E_BUSY] | ng_bank_presets()->RESULT=[(bank,program,name)] JSON
 EXPORT ng_engine_init(sr, synth_kind /*0 osc,1 soundfont*/, max_voices) | ng_engine_set_schedule(ptr,len) | ng_engine_set_mix(ptr,len)
-EXPORT ng_engine_transport(cmd /*0 play,1 pause,2 stop,3 seek*/, arg_f64) | ng_engine_set_loop(start_f64,end_f64,enabled) | ng_engine_audition(kind,program,key,vel,on)
+EXPORT ng_engine_transport(cmd /*0 play,1 pause,2 stop,3 seek*/, arg_f64) | ng_engine_set_loop(start_f64,end_f64,enabled) | ng_engine_set_loop_ticks(start_tick:u32,end_tick:u32,enabled:u32) | ng_engine_audition(kind,program,key,vel,on)
 EXPORT ng_engine_render(l_ptr,r_ptr,frames)->status bits(1 playing,2 ended)  [R-RT applies] | ng_engine_position_sample()->f64 | ng_engine_position_tick()->u32
 EXPORT ng_offline_begin(proj_ptr,len,opts_ptr,len) | ng_offline_step(max_frames)->frames_done(0 = finished) | ng_offline_progress()->f64 | ng_offline_cancel() | ng_offline_finish()->RESULT=PCM blob
 EXPORT ng_encode_wav(pcm_ptr,len,opts_ptr,len)->RESULT=WAV bytes | ng_export_midi(proj_ptr,len,opts_ptr,len)->RESULT=SMF, AUX=warnings | ng_import_midi(ptr,len)->RESULT=project JSON, AUX=warnings
@@ -94,7 +94,7 @@ RULE C4.2 every function tolerates invalid pointers/lengths by returning an erro
 ## C5 WORKLET PROTOCOL
 MSG main->worklet  construct: processorOptions{module:WebAssembly.Module, sampleRate, synthKind}  (fallback: send bytes and compile inside the worklet [VERIFY: spike:SP-1])
 MSG main->worklet  {t:'bank', image:ArrayBuffer(transfer)}  stopped state only
-MSG main->worklet  {t:'schedule', bytes(transfer)} any time | {t:'mix', bytes} | {t:'transport', cmd, arg} | {t:'loop', start, end, enabled} | {t:'audition', ...}
+MSG main->worklet  {t:'schedule', bytes(transfer)} any time | {t:'mix', bytes(6B/lane packed LE: slot u16, volume u8, pan u8, send u8, flags u8 bit0=mute, bits1-7=0)} | {t:'transport', cmd, arg} | {t:'loop', start_tick, end_tick, enabled /*document ticks, C0.1; converted in the engine via ng_engine_set_loop_ticks*/} | {t:'audition', kind, program, key, vel, on}
 MSG worklet->main  {t:'position', sample, tick, playing} ~30 Hz | {t:'ended'} | {t:'bank_ready', presets} | {t:'error', code, message}
 
 ## C6 TYPESCRIPT INTERFACES

@@ -31,6 +31,7 @@ interface WasmExports {
   ng_engine_set_mix(ptr: number, len: number): number;
   ng_engine_transport(cmd: number, arg: number): number;
   ng_engine_set_loop(start: number, end: number, enabled: number): number;
+  ng_engine_set_loop_ticks(start_tick: number, end_tick: number, enabled: number): number;
   ng_engine_audition(kind: number, program: number, key: number, vel: number, on: number): number;
   ng_engine_render(l_ptr: number, r_ptr: number, frames: number): number;
   ng_engine_position_sample(): number;
@@ -176,6 +177,11 @@ export class Ng {
 
   engineSetLoop(start: number, end: number, enabled: boolean): void {
     const rc = this.exports.ng_engine_set_loop(start, end, enabled ? 1 : 0);
+    if (rc !== 0) throw this.readError(rc);
+  }
+
+  engineSetLoopTicks(startTick: number, endTick: number, enabled: boolean): void {
+    const rc = this.exports.ng_engine_set_loop_ticks(startTick, endTick, enabled ? 1 : 0);
     if (rc !== 0) throw this.readError(rc);
   }
 
