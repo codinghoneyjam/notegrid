@@ -18,6 +18,49 @@ Status:    <promoted to spec / open>
 
 ---
 
+## 2026-10-10 -- T06.R01 is checkable, and T2.8 writes wider than packages/app
+
+Affects:   T2.8, g13 (scripts/check_decoupling.py), packages/playback, packages/export-service
+Decision:  T06.R01 / T06.AC4 ("zero cross-package implementation imports
+            outside app") is checked by g13 with one mechanical rule: inside
+            `packages/*/src/`, an import from another `@ng/*` package must be
+            `import type`. `app` is exempt (composing implementations is its
+            job) and so is `test/` (a test needs a real implementation to
+            assert against, and a test is not composition). The check ships
+            with detector vectors, so a pattern that stops matching the code
+            fails the gate instead of silently passing.
+
+            Consequence: the two cross-package VALUE imports that existed are
+            gone. `packages/playback/src/index.ts` and
+            `packages/export-service/src/wav.ts` now declare the shape they
+            consume (`EngineAbi`, `WavRenderer`) and take it as a constructor
+            argument, following the `SyncDocument` precedent the sync policy
+            already set. The AudioWorkletProcessor lives in `packages/app`,
+            because it is a composition root in a second realm and it is the
+            only thing that may instantiate `@ng/abi`.
+
+            T2.8's SCOPE widens from `ROOT/packages/app/**` to also cover
+            `packages/playback/**` (the port implementation the composition
+            root wires -- already named T2.8 work in the 2026-10-09 entry
+            below), `packages/export-service/src/wav.ts`,
+            `scripts/check_decoupling.py` (the AC4 check) and `e2e/**`
+            (T06.AC5 + gate g10).
+Because:   R01 had no mechanical reading. "Implementation" could mean the
+            module, the class, or the instance, and each reading gives a
+            different answer about `import { Ng }`. Keying on the erased
+            edge rather than on the noun makes the rule decidable by a
+            script: `import type` leaves no edge, so a package that only
+            needs a shape never wires anything, and `app` becomes the one
+            place where wiring happens. The alternative (leaving
+            playback and export-service importing `Ng` and calling R01
+            "satisfied by convention") is exactly the drift the T06.AC5 e2e
+            matrix exists to catch later.
+Status:    open -- the 01_system.dsl EDGE line already states the rule; the
+            mechanical form above is not yet folded into the spec, and the
+            three consumer seams (`EngineAbi`, `WavRenderer`,
+            `ScheduleCompiler`) should become the declared interfaces that
+            01_system.dsl names.
+
 ## 2026-10-09 -- mix wire format and conversion placement (engine-entry-points plan)
 
 Affects:   T1.7 follow-up, crates/ng-wasm, packages/abi, 02_contracts.dsl C2/C4/C5

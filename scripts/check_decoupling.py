@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # <META - FILE SUMMARY - Tooling script; see docstring below.>
-"""g13: DR-1, DR-2, DR-6, DR-8 checks + C12 name/path vector predicate (sink dry-run)."""
+"""g13: DR-1, DR-2, DR-6, DR-8 checks + C12 name/path vector predicate (sink dry-run)
++ T06.R01 / T06.AC4: no package outside app imports another package's implementation."""
 import pathlib
 import re
 import sys
@@ -65,6 +66,65 @@ for f in ROOT.rglob("*"):
             target.relative_to(ROOT.resolve())
         except ValueError:
             errors.append(f"DR-6: {rel}: relative path '{m.group(1)}' escapes ROOT")
+
+# T06.R01 / T06.AC4: `app` is the ONLY package allowed to import implementations of
+# interfaces (01_system.dsl PACKAGE app ... "ONLY place that imports implementations of
+# interfaces"). Everywhere else a cross-package import must be type-only, so the value a
+# consumer binds is always its own and the wiring stays in one place.
+#
+# The distinction is not stylistic: `import type` is erased at compile time and creates no
+# edge, while `import { X } from '@ng/y'` leaves one. The sync policy already relies on it
+# (SyncDocument in packages/playback/src/sync/types.ts is declared locally precisely so the
+# policy needs no edge to @ng/document).
+#
+# Two deliberate exemptions:
+#   - `app`, because composing implementations is its job.
+#   - `test/`, because a test needs a real implementation to have something to assert against
+#     and a test is not composition.
+NG_VALUE_IMPORT = re.compile(
+    r"^[ \t]*(?:import|export)\s+((?:[^;'\"\n]|'[^'\"]*'|\"[^\"\"]*\")*?)from\s*['\"](@ng/[^'\"]+)['\"]",
+    re.MULTILINE,
+)
+for f in sorted((ROOT / "packages").rglob("*.ts")):
+    rel = f.relative_to(ROOT)
+    parts = rel.parts
+    if parts[0] != "packages" or "src" not in parts:
+        continue
+    if parts[1] == "app" or "test" in parts:
+        continue
+    text = f.read_text(encoding="utf-8", errors="replace")
+    for m in NG_VALUE_IMPORT.finditer(text):
+        clause = m.group(1)
+        if re.match(r"\s*type\b", clause) or clause.strip() == "":
+            continue  # type-only, or a bare side-effect import that binds nothing
+        line = text.count("\n", 0, m.start()) + 1
+        errors.append(
+            f"T06.R01: {rel}:{line} binds a value from {m.group(2)}; declare the shape "
+            "locally or inject it (only app may compose implementations)"
+        )
+
+# Detector self-test. A gate that cannot fail is worse than no gate: it reports OK forever
+# while the rule it claims to enforce stopped matching the code. These vectors run the same
+# pattern over the shapes that must differ, so a change to it is caught here rather than by
+# the first real violation that nobody notices.
+def violates(source: str) -> bool:
+    return any(
+        not (re.match(r"\s*type\b", m.group(1)) or m.group(1).strip() == "")
+        for m in NG_VALUE_IMPORT.finditer(source)
+    )
+
+
+DETECTOR_VECTORS = [
+    ("import { Ng } from '@ng/abi';", True, "value import of a class"),
+    ("import type { Project } from '@ng/document';", False, "type-only import"),
+    ("export { WavExportAdapter } from './wav.ts';", False, "relative re-export"),
+    ("import { renderValidationPanel } from '@ng/app';", True, "value import across packages"),
+    ("import '@ng/app';", False, "a bare side-effect import binds nothing"),
+    ("// import { Ng } from '@ng/abi';\nconst x = 1;", False, "a commented import is not an import"),
+]
+for source, want, why in DETECTOR_VECTORS:
+    if violates(source) is not want:
+        errors.append(f"T06.R01 detector vector is wrong: {why} ({source.strip()!r})")
 
 # DR-8 / C12 name predicate (sink dry-run): vectors must be rejected
 RESERVED = {"CON", "PRN", "AUX", "NUL", *{f"COM{i}" for i in range(1, 10)}, *{f"LPT{i}" for i in range(1, 10)}}
