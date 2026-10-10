@@ -11,11 +11,14 @@
   },
   "scripts": {
     "check": "tsc --noEmit",
-    "test": "node --test test/validation.test.ts"
+    "test": "node --test test/*.test.ts"
   },
   "dependencies": {
+    "@ng/abi": "workspace:*",
     "@ng/document": "workspace:*",
-    "@ng/persistence": "workspace:*"
+    "@ng/editing": "workspace:*",
+    "@ng/persistence": "workspace:*",
+    "@ng/playback": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

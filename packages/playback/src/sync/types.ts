@@ -58,8 +58,8 @@ export interface SyncDocument {
  * Resolved per-lane mix row, in the document's 0..=127 scale (C0.4).
  *
  * `lane` is the index in `lanes[]`, which is the slot the renderer uses (C2.8).
- * The byte encoding of a mix message is the port's business; `ng_engine_set_mix`
- * is still `E_NOT_IMPLEMENTED`, so no wire format is defined here yet (see BLOCKERS).
+ * The byte encoding of a mix message is the port's business (`port/mixwire.ts`):
+ * 6 packed little-endian bytes per row on the `ng_engine_set_mix` wire (C5).
  */
 export interface MixRow {
   lane: number;

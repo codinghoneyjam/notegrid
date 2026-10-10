@@ -23,12 +23,21 @@ importers:
 
   packages/app:
     dependencies:
+      '@ng/abi':
+        specifier: workspace:*
+        version: link:../abi
       '@ng/document':
         specifier: workspace:*
         version: link:../document
+      '@ng/editing':
+        specifier: workspace:*
+        version: link:../editing
       '@ng/persistence':
         specifier: workspace:*
         version: link:../persistence
+      '@ng/playback':
+        specifier: workspace:*
+        version: link:../playback
     devDependencies:
       '@types/node':
         specifier: ^24.0.0

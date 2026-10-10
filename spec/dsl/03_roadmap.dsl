@@ -163,15 +163,17 @@ TASK T2.7 "save/open/autosave/recovery, validation panel"
   DONE WHEN { ac:T04.AC1 ; ac:T04.AC2 ; ac:T04.AC3 ; ac:T04.AC5 ; ac:T04.AC6 }
 TASK T2.8 "app composition, layout, settings, local log"
   STATE ORIENT
-  SCOPE { ROOT/packages/app/**, ROOT/packages/playback/**, ROOT/packages/export-service/src/wav.ts, ROOT/scripts/check_decoupling.py, ROOT/e2e/** }   READS { all package interfaces }
+  SCOPE { ROOT/packages/app/**, ROOT/packages/playback/**, ROOT/packages/editing/src/index.ts, ROOT/packages/export-service/src/**, ROOT/scripts/check_decoupling.py, ROOT/e2e/** }   READS { all package interfaces }
   DONE WHEN { ac:T06.AC2 ; ac:T06.AC4 ; ac:T06.AC5 ; gate:g10 }
   NOTE scope widened 2026-10-10 from packages/app/** only (DECISIONS.md 2026-10-10):
        T06.AC4 names a dependency check over every package (g13 -> scripts/check_decoupling.py)
-       and forces the two cross-package VALUE imports in playback/src/index.ts and
-       export-service/src/wav.ts to become injected interfaces; T06.AC5 + gate g10 are the
-       Playwright matrix (e2e/**), and the PlaybackPort implementation the composition root
-       wires is packages/playback/** (the DECISIONS.md 2026-10-09 entry 1 already named the
-       port wiring as T2.8 work).
+       and forces the two cross-package VALUE imports in playback and export-service to become
+       injected interfaces; T06.AC5 + gate g10 are the Playwright matrix (e2e/**), and the
+       PlaybackPort implementation the composition root wires is packages/playback/** (the
+       DECISIONS.md 2026-09-09 entry already named the port wiring as T2.8 work).
+       packages/editing/src/index.ts is in scope only because its barrel re-exports with `.js`
+       specifiers, which Node type stripping does not remap onto the `.ts` sources; app is the
+       first consumer that loads the barrel from Node.
 
 ## PHASE P3  "SoundFont (GM 128)"   EFFORT L
 PHASE P3
