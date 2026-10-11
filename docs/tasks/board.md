@@ -8,8 +8,7 @@ Edit the spec, then run `python scripts/check_task_state.py` to regenerate. Do n
 | state | tasks |
 |---|---|
 | NOT_STARTED | 22 |
-| ORIENT | 1 |
-| DONE | 22 |
+| DONE | 23 |
 
 Total: 45 tasks.
 
@@ -49,7 +48,7 @@ Total: 45 tasks.
 | T2.5 lane header, program palette, all-programs view | **DONE** | - | palette lists 16 families / 128 programs ; EnsureProgramLanes creates missing lanes ; ac:T02.AC1(lane-move part) |
 | T2.6 document to schedule sync, audition | **DONE** | - | ac:T03.AC2 ; ac:T03.AC3 ; ac:T03.AC4 |
 | T2.7 save/open/autosave/recovery, validation panel | **DONE** | - | ac:T04.AC1 ; ac:T04.AC2 ; ac:T04.AC3 ; ac:T04.AC5 ; ac:T04.AC6 |
-| T2.8 app composition, layout, settings, local log | **ORIENT** | g10 | ac:T06.AC2 ; ac:T06.AC4 ; ac:T06.AC5 ; gate:g10 |
+| T2.8 app composition, layout, settings, local log | **DONE** | g10 | ac:T06.AC2 ; ac:T06.AC4 ; ac:T06.AC5 ; gate:g10 |
 
 ## P3
 
