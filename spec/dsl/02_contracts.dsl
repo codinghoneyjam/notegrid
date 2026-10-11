@@ -94,6 +94,14 @@ RULE C4.2 every function tolerates invalid pointers/lengths by returning an erro
 ## C5 WORKLET PROTOCOL
 MSG main->worklet  construct: processorOptions{module:WebAssembly.Module, sampleRate, synthKind}  (fallback: send bytes and compile inside the worklet [VERIFY: spike:SP-1])
 MSG main->worklet  {t:'bank', image:ArrayBuffer(transfer)}  stopped state only
+RULE C5.1 the registered processor MUST inherit the realm's AudioWorkletProcessor ; a class that does not is
+          rejected by the audio thread, and the only observable is a bare `onprocessorerror` -- no exception,
+          no message, no `{t:'error'}` event [spike:SP-1]
+RULE C5.2 the message port is `this.port` and is NOT reachable as a global ; AudioWorkletGlobalScope does not
+          expose it, so `globalThis.port` is undefined and `onmessage` never binds. Same silent failure as C5.1.
+RULE C5.3 every TextDecoder/TextEncoder use in worklet-reachable code must be lazy ; the realm has neither
+          [DECIDE D05, spike:SP-1]. A class-field initializer throws at construction, killing the processor
+          before it can answer `ready`, so playback is silence with nothing reported anywhere.
 MSG main->worklet  {t:'schedule', bytes(transfer)} any time | {t:'mix', bytes(6B/lane packed LE: slot u16, volume u8, pan u8, send u8, flags u8 bit0=mute, bits1-7=0)} | {t:'transport', cmd, arg} | {t:'loop', start_tick, end_tick, enabled /*document ticks, C0.1; converted in the engine via ng_engine_set_loop_ticks*/} | {t:'audition', kind, program, key, vel, on}
 MSG worklet->main  {t:'position', sample, tick, playing} ~30 Hz | {t:'ended'} | {t:'bank_ready', presets} | {t:'error', code, message}
 
