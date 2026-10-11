@@ -7,6 +7,7 @@ import {
   RENDER_BLOCK,
   DirectPlaybackPort,
   type DirectPortOptions,
+  TRANSPORT_PAUSE,
   TRANSPORT_PLAY,
   TRANSPORT_STOP,
   buildMixRows,
@@ -136,10 +137,13 @@ test('direct: play and stop are the transport commands, and playing follows them
   const { abi, port } = makePort();
   port.play();
   assert.ok(port.status().playing);
+  port.pause();
+  assert.equal(port.status().playing, false, 'pause stops the transport clock');
   port.stop();
   assert.equal(port.status().playing, false);
   assert.deepEqual(abi.calls, [
     `transport:${TRANSPORT_PLAY}:0`,
+    `transport:${TRANSPORT_PAUSE}:0`,
     `transport:${TRANSPORT_STOP}:0`,
   ]);
 });

@@ -170,6 +170,11 @@ export function createApp(deps: AppDeps): App {
   if (deps.portFactory) syncOptions.portFactory = deps.portFactory;
   if (deps.debounceMs !== undefined) syncOptions.debounceMs = deps.debounceMs;
   const sync = new DocumentSync(syncOptions);
+  // The document the editor opens on is the engine's first state. Without this
+  // the engine learns the song only at the first edit, and play on a freshly
+  // opened project would be silence; the first applyDocument is also what
+  // initialises the port (T03.R05 startup order).
+  sync.applyDocument(deps.document as SyncDocument);
 
   /** The document -> engine step every mutation ends with, plus autosave and the event. */
   const commit = (doc: Project): Project => {

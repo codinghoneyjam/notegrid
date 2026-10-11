@@ -18,6 +18,53 @@ Status:    <promoted to spec / open>
 
 ---
 
+## 2026-10-11 -- the worklet reads its port from `this`, and `Ng` decodes text lazily
+
+Affects:   T2.8, gate g10, T06.AC5, packages/app/src/worklet/processor.ts, packages/abi/src/index.ts
+Decision:  Two fixes in the AudioWorklet realm, both required for g10 to pass:
+
+            1. `NgEngineProcessor` resolves its base from the global
+               (`globalThis.AudioWorkletProcessor`) instead of being a plain
+               class, and reads its port from `this.port` rather than
+               `globalThis.port`.
+
+            2. `Ng`'s `TextDecoder` is built on first use instead of in a
+               class field.
+
+Because:   Neither failure produced an exception anywhere the page could see.
+            The audio thread reported only a bare `onprocessorerror`, so the
+            symptom in every engine was identical: the node constructed, the
+            page went quiet, and the engine never answered `ready`.
+
+            The inheritance is required, not decorative: a registered class
+            that does not extend `AudioWorkletProcessor` is rejected outright.
+            The port is `this.port` only -- `AudioWorkletGlobalScope` does not
+            expose it as a global, so `globalThis.port` is `undefined` and the
+            handler silently never binds. Isolated by adding one member at a
+            time to a class known to work:
+
+                this.port.onmessage     -> works
+                this.host = this        -> works
+                this.host = globalThis  -> processorerror, no message
+
+            The lazy decoder answers D05 and SP-1, which both record that the
+            AudioWorkletGlobalScope lacks `TextDecoder`. As a field
+            initializer it threw at construction, killing the worklet before it
+            could answer `ready`. The engine path never decodes UTF-8 -- its
+            calls are numbers and binary buffers -- so the decoder is only
+            built if a JSON method is actually called, and `readError` raises a
+            named `E_NO_TEXT_DECODER` instead of a `ReferenceError`.
+
+            T2.8's SCOPE does not include `packages/abi/**`. This widens it
+            for one file, approved by the orchestrator's user, because the
+            alternative was leaving g10 red or rewriting the worklet to avoid
+            `Ng` altogether.
+
+Status:    open -- D05 already states the TextDecoder constraint; the
+            `this.port` requirement and the inheritance are not written down
+            anywhere, and the spec's silence is what let a class that could
+            never run ship as DONE-adjacent code.
+
 ## 2026-10-10 -- T06.R01 is checkable, and T2.8 writes wider than packages/app
 
 Affects:   T2.8, g13 (scripts/check_decoupling.py), packages/playback, packages/export-service

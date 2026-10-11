@@ -6,6 +6,9 @@ import assert from 'node:assert/strict';
 import {
   MIX_RECORD_BYTES,
   PROCESSOR_NAME,
+  TRANSPORT_PAUSE,
+  TRANSPORT_PLAY,
+  TRANSPORT_STOP,
   WorkletPlaybackPort,
   buildMixRows,
   encodeMixRows,
@@ -164,13 +167,15 @@ const OPS: ReplayOp[] = [
   { op: 'loop', range: { start: 0, end: 7680 } },
 ];
 
-test('port: nothing reaches the wire before the worklet answers ready', () => {
-  // Recovery builds a port and immediately replays the snapshot into it, so a message sent
-  // into a cold port has to be held, not dropped.
+test('port: only the bootstrap reaches the wire before the worklet answers ready', () => {
+  // Recovery builds a port and immediately replays the snapshot into it. The bootstrap
+  // `init` is posted at once -- the processor answers `ready` only after it has processed
+  // it, so a port that held it would deadlock -- and every later message is held, not
+  // dropped.
   const { node, port } = makePort();
   for (const op of OPS) port.apply(op);
-  assert.equal(node.port.sent.length, 0, 'no output yet');
-  assert.equal(port.queued(), OPS.length);
+  assert.deepEqual(node.sentOps(), ['init'], 'the bootstrap is on the wire');
+  assert.equal(port.queued(), OPS.length - 1);
 
   node.emit({ t: 'ready', sampleRate: 44100 });
   assert.deepEqual(node.sentOps(), ['init', 'schedule', 'mix', 'loop'], 'T03.R05 FIFO order');
@@ -193,6 +198,19 @@ test('port: a zero-lane document sends no mix message at all', () => {
   assert.deepEqual(node.sentOps(), [], 'len 0 is E_FORMAT at the engine, so it is not sent');
 });
 
+test('port: play, pause and stop are distinct transport commands', () => {
+  const { node, port } = makePort();
+  node.emit({ t: 'ready', sampleRate: 44100 });
+  port.play();
+  port.pause();
+  port.stop();
+  assert.deepEqual(
+    node.port.sent.map((m) => (m as { cmd: number }).cmd),
+    [TRANSPORT_PLAY, TRANSPORT_PAUSE, TRANSPORT_STOP],
+    'the engine has three commands; the port does not collapse them',
+  );
+});
+
 test('port: the schedule bytes are copied, so the replay snapshot is not detached', () => {
   // The policy keeps the same Uint8Array in its snapshot for recovery. Transferring it
   // would detach the buffer the snapshot still points at.
@@ -208,8 +226,7 @@ test('port: the schedule bytes are copied, so the replay snapshot is not detache
   assert.notEqual(sent.bytes, bytes.buffer, 'through a copy, not the original buffer');
 });
 
-test('port: audition goes out with on as 1 or 0, matching the C5 field', () => {
-  const { node, port } = makePort();
+test('port: audition goes out with on as 1 or 0, matching the C5 field', () => {  const { node, port } = makePort();
   node.emit({ t: 'ready', sampleRate: 44100 });
   port.audition(0, 0, 60, 100, true);
   port.audition(0, 0, 60, 0, false);

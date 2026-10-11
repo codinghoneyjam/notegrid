@@ -114,7 +114,9 @@ class EnginePort implements PlaybackPort {
         this.ng.engineInit(op.sampleRate, 0, 64);
         break;
       default:
-        // mix and bank have no engine entry point yet (E_NOT_IMPLEMENTED); see BLOCKERS.
+        // The double forwards what the tests assert on; mix reaches the
+        // engine through engineSetMix, but no test here asserts engine mix
+        // state, so it is recorded only.
         break;
     }
   }
@@ -337,8 +339,7 @@ test('audition stays sounding while the caller holds the key', () => {
   assert.equal(audition.sounding, 0);
 });
 
-test('replay order is fixed and skips state that was never set', () => {
-  const schedule = new Uint8Array([1, 2, 3]);
+test('replay order is fixed and skips state that was never set', () => {  const schedule = new Uint8Array([1, 2, 3]);
   const bank = new Uint8Array([9]);
   const ops = planReplay({
     sampleRate: SAMPLE_RATE,
@@ -358,6 +359,61 @@ test('replay order is fixed and skips state that was never set', () => {
     bank: null,
   });
   assert.deepEqual(bare.map((o) => o.op), ['init', 'loop'], 'loop null is still sent, it clears the range');
+});
+
+test('the first document initialises the port before anything else', () => {
+  const port = new RecordingPort();
+  const sync = new DocumentSync({
+    sampleRate: SAMPLE_RATE,
+    compiler: new StubCompiler(),
+    port,
+    clock: new ManualClock(),
+  });
+
+  // A fresh worklet rejects every command that arrives before init,
+  // so init has to be the first op the policy ever sends -- the same
+  // first message recovery replays, from the same one definition.
+  sync.applyDocument(makeDoc());
+  assert.deepEqual(
+    port.ops.slice(0, 3).map((o) => o.op),
+    ['init', 'mix'],
+    'init, then the immediate mix; the loop and schedule wait for the compile',
+  );
+  const init = port.opsOfType('init')[0];
+  assert.ok(init.op === 'init');
+  assert.equal(init.sampleRate, SAMPLE_RATE);
+
+  // Only the first document initialises: later edits do not re-init.
+  sync.applyDocument(makeDocNoLoop({ notes: [] }));
+  assert.equal(port.opsOfType('init').length, 1);
+});
+
+test('the first document withholds the loop until a schedule lands', () => {
+  // set_loop_ticks with enabled != 0 and no schedule is E_ENGINE, and a refused
+  // loop is never retried, so the policy holds the document's loop until the
+  // first compile puts a schedule on the engine -- the recovery replay's order.
+  const port = new RecordingPort();
+  const sync = new DocumentSync({
+    sampleRate: SAMPLE_RATE,
+    compiler: new StubCompiler(),
+    port,
+    clock: new ManualClock(),
+  });
+
+  sync.applyDocument(makeDoc());
+  assert.deepEqual(
+    port.ops.map((o) => o.op),
+    ['init', 'mix'],
+    'the loop is not sent before the engine has a schedule to attach it to',
+  );
+  assert.equal(port.opsOfType('loop').length, 0, 'nothing refused, nothing lost');
+
+  sync.flush();
+  assert.deepEqual(
+    port.ops.map((o) => o.op),
+    ['init', 'mix', 'schedule', 'loop'],
+    'the loop follows the schedule, the one order the engine accepts',
+  );
 });
 
 test('T2.6 unit boundary: the policy emits the loop in document ticks, the port converts', () => {
@@ -574,7 +630,13 @@ test('T03.AC4: a killed worklet is recreated and the full state is replayed in o
   sync.applyDocument(makeDoc());
   sync.flush();
   sync.setBank(new Uint8Array([7, 7, 7]));
-  assert.deepEqual(first.ops.map((o) => o.op), ['mix', 'loop', 'schedule', 'bank']);
+  assert.deepEqual(first.ops.map((o) => o.op), [
+    'init',
+    'mix',
+    'schedule',
+    'loop',
+    'bank',
+  ]);
 
   const outcome = sync.reportTransportFailure('worklet error: InvalidStateError');
 

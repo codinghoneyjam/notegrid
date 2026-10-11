@@ -51,10 +51,32 @@ export interface Report {
 
 export class Ng {
   private exports: WasmExports;
-  private td = new TextDecoder();
+  /**
+   * Resolved lazily, because the AudioWorkletGlobalScope has no `TextDecoder`
+   * (DECIDE D05, spike SP-1). As a field initializer this ran at construction and threw a
+   * `ReferenceError` inside the audio thread, which the page only ever saw as a bare
+   * `onprocessorerror`: the worklet died before answering `ready`, so playback was silence
+   * with no message anywhere. The engine path never decodes UTF-8 -- its calls are numbers
+   * and binary buffers -- so the decoder is only built if a JSON method is actually used.
+   */
+  private td: TextDecoder | null = null;
 
   constructor(exports: WasmExports) {
     this.exports = exports;
+  }
+
+  private decoder(): TextDecoder {
+    if (this.td === null) {
+      const Ctor = (globalThis as { TextDecoder?: new () => TextDecoder }).TextDecoder;
+      if (Ctor === undefined) {
+        throw new NgError(
+          "E_NO_TEXT_DECODER",
+          "TextDecoder is unavailable in this realm; the JSON methods cannot run here",
+        );
+      }
+      this.td = new Ctor();
+    }
+    return this.td;
   }
 
   abiVersion(): number {
@@ -90,7 +112,7 @@ export class Ng {
     const len = ex.ng_error_len();
     const bytes = new Uint8Array(ex.memory.buffer, ptr, len);
     try {
-      const parsed = JSON.parse(this.td.decode(bytes));
+      const parsed = JSON.parse(this.decoder().decode(bytes));
       return new NgError(parsed.code ?? `E_RC_${rc}`, parsed.message ?? "unknown");
     } catch {
       return new NgError(`E_RC_${rc}`, "unknown");
@@ -99,17 +121,17 @@ export class Ng {
 
   validate(json: string): Report {
     const { out } = this.call(this.exports.ng_project_validate.bind(this.exports), new TextEncoder().encode(json));
-    return JSON.parse(this.td.decode(out)) as Report;
+    return JSON.parse(this.decoder().decode(out)) as Report;
   }
 
   migrate(json: string): string {
     const { out } = this.call(this.exports.ng_project_migrate.bind(this.exports), new TextEncoder().encode(json));
-    return this.td.decode(out);
+    return this.decoder().decode(out);
   }
 
   canonical(json: string): string {
     const { out } = this.call(this.exports.ng_project_canonical.bind(this.exports), new TextEncoder().encode(json));
-    return this.td.decode(out);
+    return this.decoder().decode(out);
   }
 
   gmTables(): unknown {
@@ -119,7 +141,7 @@ export class Ng {
     const ptr = ex.ng_result_ptr();
     const len = ex.ng_result_len();
     const bytes = new Uint8Array(ex.memory.buffer, ptr, len);
-    return JSON.parse(this.td.decode(bytes));
+    return JSON.parse(this.decoder().decode(bytes));
   }
 
   renderWav(json: string, sampleRate = 44100, depth: 0 | 1 | 2 = 0): Uint8Array {

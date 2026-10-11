@@ -2,6 +2,7 @@ target/
 node_modules/
 dist/
 e2e/harness/harness.js
+e2e/harness/worklet.js
 e2e/test-results/
 music_output/*
 !music_output/.gitignore
