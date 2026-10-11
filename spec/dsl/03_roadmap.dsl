@@ -187,9 +187,11 @@ PHASE P3
   NOTE    no bundled bank: before a bank is loaded OscSynth plays ; a non-CORS link falls back to LocalFileSource (R15)
 
 TASK T3.0 "spikes SP-3 and SP-4, then fix the implementation route"
+  STATE ORIENT
   SCOPE { ROOT/docs/spikes/**, ROOT/spikes/** }
   DONE WHEN { reports with PASS/FALLBACK ; DECIDE D09 annotated with the chosen route }
 TASK T3.1 "SF2 parser, flattening, SoundbankImage, sf2_builder, fuzz"
+  STATE ORIENT
   SCOPE { ROOT/crates/ng-bank/** }   READS { ng-core }
   DONE WHEN { ac:R03.AC1 ; ac:R03.AC2 ; ac:R03.AC3 }
 TASK T3.2 "SoundFontSynth (or adapter) passing synth_contract"
