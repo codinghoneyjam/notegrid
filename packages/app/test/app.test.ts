@@ -135,9 +135,17 @@ test('AC2: edit -> schedule sync -> save, with no browser in the loop', async ()
 
   h.app.flush();
   const sent = h.ops.slice(before).map((op) => op.op);
-  assert.ok(sent.includes('mix'), `a note edit is also a mix change: ${sent.join(',')}`);
-  assert.ok(sent.includes('loop'), `a document with a loop pushes it: ${sent.join(',')}`);
-  assert.ok(sent.includes('schedule'), `the note forces a recompile: ${sent.join(',')}`);
+  assert.ok(sent.includes('schedule'), `a note edit forces a recompile: ${sent.join(',')}`);
+  // Mix rows come from lanes, not notes, so a note edit is only a
+  // schedule change. The initial document carried its mix at creation,
+  // together with the init that starts the port; its loop follows the
+  // first schedule, because the engine attaches a loop to the loaded
+  // schedule and refuses one before it.
+  assert.deepEqual(
+    h.ops.slice(0, before).map((op) => op.op),
+    ['init', 'mix'],
+    'the first document initialises the port, then states mix',
+  );
 
   const scheduled = h.ops.filter((op) => op.op === 'schedule');
   assert.equal(scheduled.length, 1, 'one compile for one edit, not one per message');

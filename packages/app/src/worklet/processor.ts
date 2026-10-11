@@ -43,37 +43,53 @@ interface WorkletScope {
   registerProcessor(name: string, ctor: unknown): void;
 }
 
-interface WorkletHost {
-  readonly port: {
-    postMessage(message: unknown): void;
-    onmessage: ((event: { data: Command }) => void) | null;
-  };
-}
-
 interface ProcessorOptions {
   processorOptions?: { module?: WebAssembly.Module };
 }
 
 /**
- * `AudioWorkletProcessor` cannot be named here: it only exists inside the worklet global
- * scope, and this file is also type-checked on the main thread where it does not. The two
- * members actually used are declared structurally instead, which is enough to keep the
- * render loop honest without a DOM lib in the type graph.
+ * The real base class, looked up at run time.
+ *
+ * `AudioWorkletProcessor` exists only inside the worklet global scope, and this file is
+ * also type-checked on the main thread where it does not, so naming it in an `extends`
+ * clause would break `tsc`. Reading it off the global satisfies both: the type checker sees
+ * the structural type below, and inside the worklet the prototype chain reaches the real
+ * constructor.
+ *
+ * The inheritance is not optional. A registered class that does not extend
+ * `AudioWorkletProcessor` is rejected by the audio thread, and the only thing the page
+ * ever sees is a bare `onprocessorerror` -- no exception, no message, no `error` event to
+ * read -- which is why this is resolved from the global rather than stood up locally.
  */
-class NgEngineProcessor {
-  private readonly host: WorkletHost;
+interface AudioWorkletProcessorBase {
+  readonly port: MessagePortLike;
+}
+interface MessagePortLike {
+  postMessage(message: unknown): void;
+  onmessage: ((event: { data: Command }) => void) | null;
+}
+
+const WorkletProcessorBase = (globalThis as unknown as {
+  AudioWorkletProcessor: new () => AudioWorkletProcessorBase;
+}).AudioWorkletProcessor;
+
+class NgEngineProcessor extends WorkletProcessorBase {
   private readonly options: ProcessorOptions;
   private ng: Ng | null = null;
   private readonly left = new Float32Array(BLOCK);
   private readonly right = new Float32Array(BLOCK);
   private blocks = 0;
 
-  constructor(options: ProcessorOptions, host: WorkletHost) {
+  constructor(options: ProcessorOptions) {
+    super();
     this.options = options ?? {};
-    this.host = host;
-    // Bound in the constructor rather than in `init`: a message can arrive on the port
-    // before any render callback does, and an unbound handler would drop it.
-    host.port.onmessage = (event: { data: Command }) => {
+    // The port is `this.port` and NOT `globalThis.port`: the AudioWorkletGlobalScope does
+    // not expose it as a global, so reading it off `globalThis` yields undefined and the
+    // handler never binds. That failure is invisible -- the node is constructed, the
+    // audio thread never faults, and the page just hears silence.
+    // Bound here rather than in `init`: a message can arrive on the port before any render
+    // callback does, and an unbound handler would drop it.
+    this.port.onmessage = (event: { data: Command }) => {
       this.receive(event.data);
     };
   }
@@ -178,7 +194,7 @@ class NgEngineProcessor {
   }
 
   private post(event: Event): void {
-    this.host.port.postMessage(event);
+    this.port.postMessage(event);
   }
 
   private fail(code: string, message: string): void {

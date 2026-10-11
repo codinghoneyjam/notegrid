@@ -1,21 +1,68 @@
-// The page under test for e2e/tests/persistence.spec.ts.
+// The page under test for e2e: the persistence matrix (T04.AC6) and the
+// app composition matrix (T06.AC5 / gate g10).
 //
-// It imports the real package sources (bundled by e2e/build.mjs), so renaming anything in
-// packages/persistence or packages/app breaks this harness instead of leaving a green
-// spec behind. What it adds on top is only the seam a test needs: captured bytes, a
-// seeded storage layer, and the panel mounted where Playwright can see it.
+// It imports the real package sources (bundled by e2e/build.mjs), so renaming
+// anything in packages/persistence, packages/playback or packages/app breaks
+// this harness instead of leaving a green spec behind. What it adds on top is
+// only the seam a test needs: captured bytes, a seeded storage layer, and the
+// validation panel and the app mounted where Playwright can see them.
+//
+// `?port=direct` mounts the composition root on the DirectPlaybackPort
+// instead of the worklet, which is the T06.AC5 fallback path: the same
+// app, the same engine calls, on the main thread.
 
 import { Ng } from '@ng/abi';
-import { buildValidationView, renderValidationPanel } from '@ng/app';
+import {
+  buildValidationView,
+  createApp,
+  renderValidationPanel,
+  type App,
+} from '@ng/app';
+import type { Project } from '@ng/document';
+import {
+  DirectPlaybackPort,
+  createWorkletPort,
+  loadWorkletModule,
+  type ScheduleCompiler,
+} from '@ng/playback';
 import {
   browserPlatform,
+  encodeProject,
   FileStore,
   MemoryBackend,
   ProjectStore,
   type OpenResult,
 } from '@ng/persistence';
 
-interface HarnessApi {
+interface SmokeOutcome {
+  ok: boolean;
+  error: string;
+}
+
+interface SmokeApi {
+  mounted: boolean;
+  portKind(): 'worklet' | 'direct';
+  audioState(): string;
+  workletReady(): boolean;
+  mountFixture(projectJson: string): Promise<SmokeOutcome>;
+  noteCount(): number;
+  placeNote(lane: number, start: number, pitch: number, duration: number): boolean;
+  flush(): void;
+  play(): void;
+  pause(): void;
+  stop(): void;
+  playing(): boolean;
+  blockPeaks(): number[];
+  nonSilentBlocks(): number;
+  lastPosition(): { sample: number; tick: number; playing: boolean } | null;
+  errors(): string[];
+  log(): Array<{ code: string; message: string }>;
+  exportWav(): { ok: boolean; bytes: string; error: string };
+  /** Renders a project string through the offline path, which needs no audio clock. */
+  renderOffline(projectJson: string): { ok: boolean; bytes: string; error: string };
+}
+
+interface HarnessApi extends SmokeApi {
   usesFileSystemAccess: boolean;
   save(name: string, projectJson: string): Promise<{ ok: boolean; path: string; name: string }>;
   lastSavedBytes(): Uint8Array | null;
@@ -35,14 +82,6 @@ declare global {
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
-
-async function loadNg(): Promise<Ng> {
-  // Served by e2e/build.mjs, so the browser gets the same artifact the Node tests do.
-  const response = await fetch('/ng-wasm.wasm');
-  const bytes = await response.arrayBuffer();
-  const { instance } = await WebAssembly.instantiate(bytes, {});
-  return new Ng(instance.exports as never);
-}
 
 const real = browserPlatform();
 
@@ -70,7 +109,12 @@ const platform = {
 
 const files = new FileStore({ platform });
 
-const ng = await loadNg();
+// One fetch serves both the main-thread Ng and the worklet's wasm module.
+const response = await fetch('/ng-wasm.wasm');
+const wasmBytes = new Uint8Array(await response.arrayBuffer());
+const { instance } = await WebAssembly.instantiate(wasmBytes, {});
+const ng = new Ng(instance.exports as never);
+
 const backend = new MemoryBackend();
 const clock = {
   now: () => Date.now(),
@@ -98,7 +142,215 @@ if (mount) {
   );
 }
 
+// --- app composition (T06.AC5 / gate g10) ------------------------------------------------
+
+/** The engine the spec is driving: worklet by default, direct under `?port=direct`. */
+const portKind: 'worklet' | 'direct' =
+  new URLSearchParams(window.location.search).get('port') === 'direct' ? 'direct' : 'worklet';
+
+const peaks: number[] = [];
+const positions: Array<{ sample: number; tick: number; playing: boolean }> = [];
+const engineErrors: string[] = [];
+
+let app: App | null = null;
+let activeDirect: DirectPlaybackPort | null = null;
+let directTimer: ReturnType<typeof setInterval> | null = null;
+/** The module stays registered for the context's lifetime; loading it twice would re-register the name. */
+let workletLoaded = false;
+/** Set when the processor has answered `ready`; without it every port message is queued. */
+let workletReady = false;
+
+/**
+ * The audio clock the composition root runs on; the spec resumes it with a key press.
+ *
+ * Resolved through `window` with a prefix fallback, and allowed to be absent: an engine
+ * with no AudioContext still loads the document, edits and renders offline, which is the
+ * editing-only degradation C11.3 describes. Constructing one unconditionally would throw at
+ * module scope and take `window.ng` down with it, so the whole page would be unreachable
+ * rather than merely audio-less.
+ */
+const AudioContextCtor: typeof AudioContext | undefined =
+  (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext })
+    .AudioContext ??
+  (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+const audio: AudioContext | null = AudioContextCtor === undefined ? null : new AudioContextCtor();
+
+const settingsStorage = {
+  read: (key: string): string | null => window.localStorage.getItem(key),
+  write: (key: string, value: string): void => {
+    window.localStorage.setItem(key, value);
+  },
+};
+
+/** The compiler the app uses: document -> real C3 schedule bytes, through the wasm. */
+const compiler: ScheduleCompiler = {
+  compile: (doc, sampleRate) => ng.compile(encodeProject(doc as unknown as Project), sampleRate),
+};
+
+function recordStatus(status: {
+  sample: number;
+  tick: number;
+  playing: boolean;
+  peak: number;
+}): void {
+  peaks.push(status.peak);
+  positions.push({
+    sample: status.sample,
+    tick: status.tick,
+    playing: status.playing,
+  });
+}
+
+/** The direct port renders on demand; this timer is the main-thread stand-in for the audio clock. */
+function startDirectTimer(): void {
+  if (directTimer !== null) return;
+  directTimer = setInterval(() => {
+    if (app?.playing() && activeDirect) {
+      activeDirect.renderBlock();
+    }
+  }, 4);
+}
+
+async function mountFixture(projectJson: string): Promise<SmokeOutcome> {
+  try {
+    const opened: OpenResult = store.openBytes(enc.encode(projectJson));
+    if (!opened.ok) {
+      return { ok: false, error: opened.errors[0]?.code ?? 'E_OPEN' };
+    }
+
+    // AudioContext starts suspended under autoplay policy; the spec presses a
+    // key first, which is the user activation resume() needs.
+    //
+    // An engine with no AudioContext still opens, edits and renders; it simply cannot
+    // play. `mountFixture` says so rather than throwing, so the page stays reachable and
+    // the offline half of the scenario is still testable there.
+    if (audio === null) {
+      return { ok: false, error: 'NO_AUDIO_CONTEXT' };
+    }
+    await audio.resume();
+
+    app?.dispose();
+    if (directTimer !== null) {
+      clearInterval(directTimer);
+      directTimer = null;
+    }
+    peaks.length = 0;
+    positions.length = 0;
+    engineErrors.length = 0;
+
+    const wasmModule = await WebAssembly.compile(wasmBytes);
+
+    if (portKind === 'direct') {
+      const makePort = (): DirectPlaybackPort => {
+        activeDirect = new DirectPlaybackPort({ abi: ng, onStatus: recordStatus });
+        return activeDirect;
+      };
+      app = createApp({
+        document: opened.doc,
+        compiler,
+        port: makePort(),
+        portFactory: makePort,
+        store,
+        sampleRate: audio.sampleRate,
+        settingsStorage,
+        projectId: 'e2e',
+      });
+      startDirectTimer();
+    } else {
+      if (!workletLoaded) {
+        await loadWorkletModule(audio, '/worklet.js');
+        workletLoaded = true;
+      }
+      const makePort = () =>
+        createWorkletPort({
+          context: audio,
+          moduleUrl: '/worklet.js',
+          wasmModule,
+          onReady: () => {
+            workletReady = true;
+          },
+          onBlock: (_frames, peak) => peaks.push(peak),
+          onPosition: (sample, tick, playing) => positions.push({ sample, tick, playing }),
+          onError: (code, message) => engineErrors.push(`${code}: ${message}`),
+        });
+      app = createApp({
+        document: opened.doc,
+        compiler,
+        port: makePort(),
+        portFactory: makePort,
+        store,
+        sampleRate: audio.sampleRate,
+        settingsStorage,
+        projectId: 'e2e',
+      });
+    }
+
+    return { ok: true, error: '' };
+  } catch (cause) {
+    return { ok: false, error: cause instanceof Error ? cause.message : String(cause) };
+  }
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(binary);
+}
+
+const smoke: SmokeApi = {
+  get mounted() {
+    return app !== null;
+  },
+  portKind: () => portKind,
+  audioState: () => (audio === null ? 'unavailable' : audio.state),
+  workletReady: () => workletReady,
+  mountFixture,
+  noteCount: () => app?.document().notes.length ?? -1,
+  placeNote: (lane, start, pitch, duration) => {
+    if (!app) return false;
+    const before = app.document().notes.length;
+    app.apply({ type: 'addNote', lane, start, pitch, duration });
+    return app.document().notes.length === before + 1;
+  },
+  flush: () => app?.flush(),
+  play: () => app?.play(),
+  pause: () => app?.pause(),
+  stop: () => app?.stop(),
+  playing: () => app?.playing() ?? false,
+  blockPeaks: () => [...peaks],
+  nonSilentBlocks: () => peaks.filter((peak) => peak > 0).length,
+  lastPosition: () => (positions.length > 0 ? positions[positions.length - 1] : null),
+  errors: () => [...engineErrors],
+  log: () => (app?.log() ?? []).map((entry) => ({ code: entry.code, message: entry.message })),
+  exportWav: () => {
+    if (!app) return { ok: false, bytes: '', error: 'no document mounted' };
+    try {
+      const json = encodeProject(app.document());
+      const wav = ng.renderWav(json, app.settings().exportSampleRate, 0);
+      return { ok: true, bytes: toBase64(wav), error: '' };
+    } catch (cause) {
+      return { ok: false, bytes: '', error: cause instanceof Error ? cause.message : String(cause) };
+    }
+  },
+  renderOffline: (projectJson) => {
+    // Deliberately independent of `app`: this is the path that must keep working on an
+    // engine with no AudioContext, so it takes the JSON directly rather than the document
+    // a mounted app would hold.
+    try {
+      const wav = ng.renderWav(projectJson, 44100, 0);
+      return { ok: true, bytes: toBase64(wav), error: '' };
+    } catch (cause) {
+      return { ok: false, bytes: '', error: cause instanceof Error ? cause.message : String(cause) };
+    }
+  },
+};
+
 window.ng = {
+  ...smoke,
+
   get usesFileSystemAccess() {
     return files.usesFileSystemAccess;
   },
@@ -180,4 +432,3 @@ window.ng = {
     return '';
   },
 };
-

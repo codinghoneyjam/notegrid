@@ -1,7 +1,7 @@
 // <META - FILE SUMMARY - The main-thread PlaybackPort: drives the wasm engine directly, one block at a time.>
 
 import type { PlaybackPort, ReplayOp } from '../sync/index.ts';
-import { TRANSPORT_PLAY, TRANSPORT_STOP, type EngineAbi } from '../engine.ts';
+import { TRANSPORT_PAUSE, TRANSPORT_PLAY, TRANSPORT_STOP, type EngineAbi } from '../engine.ts';
 import { encodeMixRows } from './mixwire.ts';
 
 export const RENDER_BLOCK = 128;
@@ -91,6 +91,12 @@ export class DirectPlaybackPort implements PlaybackPort {
     this.ended = false;
     this.playing = true;
     this.abi.engineTransport(TRANSPORT_PLAY, 0);
+  }
+
+  pause(): void {
+    this.assertOpen();
+    this.playing = false;
+    this.abi.engineTransport(TRANSPORT_PAUSE, 0);
   }
 
   stop(): void {

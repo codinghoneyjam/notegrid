@@ -1,7 +1,7 @@
 // <META - FILE SUMMARY - The worklet-backed PlaybackPort: the C5 message protocol over an AudioWorkletNode.>
 
 import type { PlaybackPort, ReplayOp } from '../sync/index.ts';
-import { TRANSPORT_PLAY, TRANSPORT_STOP, loopTickMessage } from '../engine.ts';
+import { TRANSPORT_PAUSE, TRANSPORT_PLAY, TRANSPORT_STOP, loopTickMessage } from '../engine.ts';
 import { encodeMixRows } from './mixwire.ts';
 
 /** Must match the name `registerProcessor` was called with in the processor module. */
@@ -59,6 +59,8 @@ export class WorkletPlaybackPort implements PlaybackPort {
   private readonly options: WorkletPortOptions;
   private readonly pending: unknown[] = [];
   private ready = false;
+  /** Whether the bootstrap `init` has been posted. */
+  private booted = false;
   private closed = false;
 
   constructor(options: WorkletPortOptions) {
@@ -103,6 +105,11 @@ export class WorkletPlaybackPort implements PlaybackPort {
     this.send({ t: 'transport', cmd: TRANSPORT_PLAY, arg: 0 });
   }
 
+  pause(): void {
+    this.assertOpen();
+    this.send({ t: 'transport', cmd: TRANSPORT_PAUSE, arg: 0 });
+  }
+
   stop(): void {
     if (this.closed) return;
     this.send({ t: 'transport', cmd: TRANSPORT_STOP, arg: 0 });
@@ -127,11 +134,16 @@ export class WorkletPlaybackPort implements PlaybackPort {
   }
 
   private flush(): void {
-    while (this.ready && this.pending.length > 0) {
+    while (this.pending.length > 0) {
+      // The first message is the bootstrap, and it cannot wait for `ready`:
+      // the processor answers `ready` only after it has processed `init`, so a
+      // port that held it would deadlock. Every later message waits, because
+      // the engine rejects any command that arrives before `init` has run.
+      if (!this.ready && this.booted) break;
       const message = this.pending.shift();
-      if (message !== undefined) {
-        this.node.port.postMessage(message);
-      }
+      if (message === undefined) break;
+      this.node.port.postMessage(message);
+      this.booted = true;
     }
   }
 
@@ -181,12 +193,34 @@ export interface CreateWorkletPortOptions extends WorkletPortOptions {
 }
 
 /**
- * Adds the processor module and builds the node.
+ * Loads the processor module onto a context.
  *
- * `addModule` is asynchronous and `PortFactory` is synchronous (`() => PlaybackPort`), so
- * the module is added once here and the node is created immediately: a node whose module is
- * still loading stays silent rather than throwing, and the port's queue holds every message
- * until the processor's `ready` arrives. That is the same path a cold page load takes.
+ * `audioWorklet.addModule` is asynchronous, and a node constructed before its
+ * processor is registered throws instead of waiting -- so the composition root
+ * awaits this before it builds a port. A module URL loaded once stays
+ * registered for the context's lifetime, which is what lets the watchdog's
+ * synchronous `PortFactory` rebuild a node: the name is already there.
+ */
+export async function loadWorkletModule(
+  context: AudioContext,
+  moduleUrl: string,
+): Promise<void> {
+  const audioWorklet = context.audioWorklet;
+  if (!audioWorklet || typeof AudioWorkletNode === 'undefined') {
+    throw new Error('AudioWorklet is unavailable on this context');
+  }
+  await audioWorklet.addModule(moduleUrl);
+}
+
+/**
+ * Builds the node and the port.
+ *
+ * The module must already be registered on the context
+ * (`loadWorkletModule`): `addModule` is asynchronous, and a node
+ * constructed before its processor is registered throws rather than
+ * waits, so a fire-and-forget load here would only lose the race.
+ * Registration is a once-per-context event, which is what keeps the
+ * watchdog's synchronous factory honest.
  */
 export function createWorkletPort(options: CreateWorkletPortOptions): WorkletPlaybackPort {
   const context = options.context;
@@ -194,10 +228,6 @@ export function createWorkletPort(options: CreateWorkletPortOptions): WorkletPla
   if (!audioWorklet || typeof AudioWorkletNode === 'undefined') {
     throw new Error('AudioWorklet is unavailable on this context');
   }
-  void audioWorklet.addModule(options.moduleUrl).catch(() => {
-    // Reported through the processor once it exists; a load failure surfaces as silence and
-    // the watchdog's recovery, which is the same path a killed worklet takes.
-  });
   const node = new AudioWorkletNode(context, PROCESSOR_NAME, {
     numberOfInputs: 0,
     numberOfOutputs: 1,

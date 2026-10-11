@@ -1,7 +1,12 @@
 // Bundles the e2e harness against the real package sources and serves the wasm.
 //
+// Two bundles land in e2e/harness/:
+//   harness.js  the page under test (ESM, imported by harness.html)
+//   worklet.js  the AudioWorklet processor (IIFE, loaded by audioWorklet.addModule)
+//
 // The spec loads one JS file plus one wasm file, which keeps the Playwright fixture free
-// of bundler configuration and means a change in packages/persistence shows up here.
+// of bundler configuration and means a change in packages/persistence or packages/app
+// shows up here instead of leaving a green spec behind.
 //
 //   node build.mjs              bundle, then serve until interrupted (used by CI/webServer)
 //   node build.mjs --build-only bundle and exit
@@ -23,6 +28,31 @@ const TYPES = {
   '.json': 'application/json; charset=utf-8',
 };
 
+// The workspace packages are TypeScript; point them at the sources so the bundle
+// needs no per-package build step.
+const alias = {
+  '@ng/persistence': join(ROOT, 'packages/persistence/src/index.ts'),
+  '@ng/app': join(ROOT, 'packages/app/src/index.ts'),
+  '@ng/document': join(ROOT, 'packages/document/src/index.ts'),
+  '@ng/abi': join(ROOT, 'packages/abi/src/index.ts'),
+  '@ng/playback': join(ROOT, 'packages/playback/src/index.ts'),
+  '@ng/editing': join(ROOT, 'packages/editing/src/index.ts'),
+};
+
+// `loadNg()` with no argument reads the wasm off disk, which a browser cannot do.
+// The harness never calls that path -- it passes bytes it fetched itself -- so the
+// dynamic import is replaced rather than shimmed at runtime.
+const dropNodeFs = {
+  name: 'drop-node-fs',
+  setup(pluginBuild) {
+    pluginBuild.onResolve({ filter: /^node:fs\/promises$/ }, () => ({ path: 'node-fs', namespace: 'drop-node-fs' }));
+    pluginBuild.onLoad({ filter: /.*/, namespace: 'drop-node-fs' }, () => ({
+      contents: 'export const readFile = () => { throw new Error("loadNg() without bytes is Node-only"); };',
+      loader: 'js',
+    }));
+  },
+};
+
 await build({
   entryPoints: [join(HERE, 'harness', 'harness.ts')],
   outfile: join(HERE, 'harness', 'harness.js'),
@@ -30,29 +60,22 @@ await build({
   format: 'esm',
   target: 'es2022',
   logLevel: 'warning',
-  alias: {
-    // The workspace packages are TypeScript; point them at the sources so the bundle
-    // needs no per-package build step.
-    '@ng/persistence': join(ROOT, 'packages/persistence/src/index.ts'),
-    '@ng/app': join(ROOT, 'packages/app/src/index.ts'),
-    '@ng/document': join(ROOT, 'packages/document/src/index.ts'),
-    '@ng/abi': join(ROOT, 'packages/abi/src/index.ts'),
-  },
-  plugins: [
-    {
-      // `loadNg()` with no argument reads the wasm off disk, which a browser cannot do.
-      // The harness never calls that path -- it passes bytes it fetched itself -- so the
-      // dynamic import is replaced rather than shimmed at runtime.
-      name: 'drop-node-fs',
-      setup(pluginBuild) {
-        pluginBuild.onResolve({ filter: /^node:fs\/promises$/ }, () => ({ path: 'node-fs', namespace: 'drop-node-fs' }));
-        pluginBuild.onLoad({ filter: /.*/, namespace: 'drop-node-fs' }, () => ({
-          contents: 'export const readFile = () => { throw new Error("loadNg() without bytes is Node-only"); };',
-          loader: 'js',
-        }));
-      },
-    },
-  ],
+  alias,
+  plugins: [dropNodeFs],
+});
+
+// The worklet is its own realm: audioWorklet.addModule evaluates it as a
+// self-contained script in the AudioWorkletGlobalScope, where no module
+// loader exists. IIFE keeps the bundle free of import statements.
+await build({
+  entryPoints: [join(ROOT, 'packages/app/src/worklet/processor.ts')],
+  outfile: join(HERE, 'harness', 'worklet.js'),
+  bundle: true,
+  format: 'iife',
+  target: 'es2022',
+  logLevel: 'warning',
+  alias,
+  plugins: [dropNodeFs],
 });
 
 if (process.argv.includes('--build-only')) {

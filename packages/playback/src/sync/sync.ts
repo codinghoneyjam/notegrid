@@ -90,6 +90,8 @@ export class DocumentSync {
   private schedule: Uint8Array | null = null;
   private mix: MixRow[] = [];
   private loop: LoopRange | null = null;
+  /** The document's loop, held until the engine has a schedule to attach it to. */
+  private loopWithheld = false;
   private bank: Uint8Array | null = null;
 
   private playing = false;
@@ -123,9 +125,18 @@ export class DocumentSync {
    * so a drag compiles once instead of once per mouse-move.
    */
   applyDocument(doc: SyncDocument): void {
+    const first = this.document === null;
     const diff = diffDocuments(this.document, doc);
     this.document = doc;
     this.audition.setDocument(doc);
+
+    // The first message a port ever receives has to be init: every later
+    // message depends on the sample rate it sets, and a worklet that has not
+    // been initialised rejects anything else. Recovery replays the same first
+    // message (planReplay), so the startup order is one definition, not two.
+    if (first) {
+      this.send({ op: 'init', sampleRate: this.sampleRate });
+    }
 
     if (diff.mix) {
       const rows = buildMixRows(doc);
@@ -137,7 +148,7 @@ export class DocumentSync {
 
     if (diff.loop) {
       this.loop = doc.loop ?? null;
-      this.send({ op: 'loop', range: this.loop });
+      this.sendLoop();
     }
 
     for (const note of diff.addedNotes) {
@@ -186,7 +197,7 @@ export class DocumentSync {
 
   setLoop(range: LoopRange | null): void {
     this.loop = range;
-    this.send({ op: 'loop', range });
+    this.sendLoop();
   }
 
   snapshot(): EngineSnapshot {
@@ -286,6 +297,8 @@ export class DocumentSync {
     for (const op of ops) {
       this.port.apply(op);
     }
+    // The replay carries the loop (planReplay sends it), so the engine has it again.
+    this.loopWithheld = false;
     // The fresh node owes us a first report before the watchdog trusts it again.
     this.lastReportAt = this.playing ? this.clock.now() : null;
     this.lastTick = null;
@@ -303,6 +316,23 @@ export class DocumentSync {
 
   private send(op: ReplayOp): void {
     this.port.apply(op);
+  }
+
+  /**
+   * The engine ties the loop to the loaded schedule (`set_loop_ticks` with
+   * enabled != 0 and no schedule is E_ENGINE), so a loop change that arrives
+   * before the first compile lands is held until a schedule does. That is
+   * the same order the recovery replay uses, and the only order the engine
+   * accepts; sending it earlier would be refused, and a refused loop is never
+   * retried, so the engine would play on without one.
+   */
+  private sendLoop(): void {
+    if (this.schedule === null) {
+      this.loopWithheld = true;
+      return;
+    }
+    this.loopWithheld = false;
+    this.send({ op: 'loop', range: this.loop });
   }
 
   private compilePending(): void {
@@ -328,6 +358,10 @@ export class DocumentSync {
     // The next position report is the one that has to prove C2.6 held.
     this.awaitingSwap = true;
     this.send({ op: 'schedule', bytes });
+    if (this.loopWithheld) {
+      this.loopWithheld = false;
+      this.send({ op: 'loop', range: this.loop });
+    }
   }
 }
 
