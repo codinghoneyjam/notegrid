@@ -8,8 +8,7 @@ Edit the spec, then run `python scripts/check_task_state.py` to regenerate. Do n
 | state | tasks |
 |---|---|
 | NOT_STARTED | 20 |
-| ORIENT | 2 |
-| DONE | 23 |
+| DONE | 25 |
 
 Total: 45 tasks.
 
@@ -55,8 +54,8 @@ Total: 45 tasks.
 
 | task | state | gates | done when |
 |---|---|---|---|
-| T3.0 spikes SP-3 and SP-4, then fix the implementation route | **ORIENT** | - | reports with PASS/FALLBACK ; DECIDE D09 annotated with the chosen route |
-| T3.1 SF2 parser, flattening, SoundbankImage, sf2_builder, fuzz | **ORIENT** | - | ac:R03.AC1 ; ac:R03.AC2 ; ac:R03.AC3 |
+| T3.0 spikes SP-3 and SP-4, then fix the implementation route | **DONE** | - | reports with PASS/FALLBACK ; DECIDE D09 annotated with the chosen route |
+| T3.1 SF2 parser, flattening, SoundbankImage, sf2_builder, fuzz | **DONE** | - | ac:R03.AC1 ; ac:R03.AC2 ; ac:R03.AC3 |
 | T3.2 SoundFontSynth (or adapter) passing synth_contract | **NOT_STARTED** | g15, g05 | ac:R04.AC3 ; gate:g15 ; gate:g05 |
 | T3.3 bank ABI, bank worker, stopped-state loading | **NOT_STARTED** | - | ac:T03.AC5 ; ng_bank_presets reports coverage |
 | T3.4 SoundbankSource: UrlSource, LocalFileSource, link presets, bank manager UI, cache, offline restore | **NOT_STARTED** | - | ac:T07.AC1 ; ac:T07.AC2 ; ac:T07.AC3 ; ac:T07.AC4 ; ac:T04.AC4 |

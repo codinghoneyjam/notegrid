@@ -18,6 +18,26 @@ Status:    <promoted to spec / open>
 
 ---
 
+## 2026-10-12 -- T3.0: build own SoundFontSynth; SF3 supported via lewton
+
+Affects:   T3.0, T3.1, T3.2, SP-3, SP-4, crates/ng-synth, crates/ng-bank
+Decision:  SP-3: FALLBACK -- build own SoundFontSynth. No existing crate meets all five
+            adopt criteria. rustysynth (closest) fails: (1) no libm (uses own SoundFontMath),
+            (2) only 16 channels (project needs >=129 for 128 GM lanes + 1 drum lane).
+            soundfont/xsynth-soundfonts are parsers only; oxideav_midi too new, also no libm.
+
+            SP-4: PASS -- SF3 supported using lewton (pure-Rust Vorbis decoder). Decode at
+            parse time per R03 design. Peak memory ~70-75 MB for a 64 MB image (compressed
+            + uncompressed). Image size limit enforced at 64 MB; SF3 file limit ~10 MB.
+Because:   The adopt gate requires ALL criteria met. rustysynth's 16-channel architecture
+            is a hard blocker for the 129-lane document model. Building our own synth using
+            libm ensures bit-exact determinism (gate g05). SF3 via lewton is feasible within
+            memory budget if image size is capped.
+Status:    open -- spec/dsl/module/R04_synth_dsp.dsl GATE spike:SP-3 line should be updated
+            to reflect FALLBACK; R03 SF3 decoder choice is lewton.
+
+---
+
 ## 2026-10-11 -- the worklet reads its port from `this`, and `Ng` decodes text lazily
 
 Affects:   T2.8, gate g10, T06.AC5, packages/app/src/worklet/processor.ts, packages/abi/src/index.ts
