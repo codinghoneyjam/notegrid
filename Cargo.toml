@@ -11,6 +11,7 @@ members = [
     "crates/ng-export",
     "crates/ng-wasm",
     "crates/ng-cli",
+    "crates/ng-bank",
     "spikes/sp2",
 ]
 

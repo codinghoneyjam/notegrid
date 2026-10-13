@@ -544,6 +544,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ng-bank"
+version = "0.0.0"
+dependencies = [
+ "ng-core",
+]
+
+[[package]]
 name = "ng-cli"
 version = "0.0.0"
 dependencies = [

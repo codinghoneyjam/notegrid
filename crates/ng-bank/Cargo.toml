@@ -1,0 +1,11 @@
+[package]
+name = "ng-bank"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+
+# R03: ng-bank is NOT in SET HOTPATH, so it does not opt into the workspace deny list.
+# It still follows the project coding standard by hand: no unwrap, no expect, no panic,
+# no slice indexing in library code; fallible paths return Result or Option.
+[dependencies]
+ng-core = { path = "../ng-core" }
